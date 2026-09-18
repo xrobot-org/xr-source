@@ -17,3 +17,16 @@ jobs:
         with:
           python-version: "3.12"
       - run: python tools/check_chinese_docs.py --report-only
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xr-source-working-copy
+          if-no-files-found: error
+          path: |
+            README.md
+            docs
+            pyproject.toml
+            MANIFEST.in
+            src
+            tests
+            tools
+            .github/workflows/test.yml
