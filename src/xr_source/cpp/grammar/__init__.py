@@ -137,8 +137,8 @@ _NODES = (
         "return_statement",
         "if_statement",
         "for_statement",
-        "while_statement",
-      "do_statement",
+      "while_statement",
+        "do_statement",
         "switch_statement",
         "break_statement",
         "continue_statement",
@@ -169,7 +169,7 @@ _NODES = (
 
     _node(
         "compound_statement",
-        fields=(("body", _slot(*_STATEMENT_KINDS, multiple=True)),
+        fields=(("body", _slot(*_STATEMENT_KINDS, multiple=True)),),
         children=_slot(*_STATEMENT_KINDS, "declaration", "comment", multiple=True),
     ),
     _node(
@@ -188,7 +188,7 @@ _NODES = (
             ("left", _slot(*_EXPRESSION_KINDS, required=True)),
             ("operator", GrammarSlot(False, True, tuple(_ref(item, False) for item in ("=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=")))),
             ("right", _slot(*_EXPRESSION_KINDS, required=True)),
-       ),
+        ),
     ),
     _node(
         "call_expression",
@@ -211,7 +211,7 @@ _NODES = (
         fields=(
             ("declarator", _slot("identifier", "operator_name", "destructor_name", required=True)),
             ("parameters", _slot("parameter_list", required=True)),
-         ),
+        ),
     ),
     _node("parameter_list", children=_slot("parameter_declaration", "optional_parameter_declaration", multiple=True)),
     _node(
@@ -226,7 +226,7 @@ _NODES = (
         fields=(
             ("declarator", _slot("identifier", "type_identifier")),
             ("default_value", _slot(*_EXPRESSION_KINDS, required=True)),
-       ),
+        ),
     ),
     _node(
         "declaration",
@@ -245,7 +245,7 @@ _NODES = (
     _node(
         "template_declaration",
         fields=(("parameters", _slot("template_parameter_list", required=True)),),
-        children=_slot(*_DECLARATION_KINDS, multiple=True),
+        children=_slot(*_DECLARATION_KINDC, "multiple=True",
     ),
     _node("template_parameter_list", children=_slot("type_parameter_declaration", "optional_type_parameter_declaration", "parameter_declaration", "optional_parameter_declaration", "variadic_parameter_declaration", multiple=True)),
     _node("type_parameter_declaration", fields=(("declarator", _slot("type_identifier", "identifier")),)),
@@ -267,7 +267,7 @@ _NODES = (
     _node("preproc_include", fields=(("path", _slot("string_literal", "system_lib_string", required=True)),)),
 )
 
-# Grammar identity 基二本文件内置合同， # 不是第三料 grammar revision。
+# Grammar identity 基于本文件内置合同，而不是第三方 grammar revision。
 _SCHEMA_FINGERPRINT = "\n".join(
     "{}:{}:{}".format(node.kind, int(node.named), ",".join(node.field_names))
     for node in _NODES
