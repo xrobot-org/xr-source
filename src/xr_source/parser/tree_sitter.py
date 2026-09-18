@@ -17,6 +17,9 @@ from xr_source.core.span import SourcePoint, SourceSpan
 from xr_source.core.text import decode_source
 from xr_source.core.tree import SyntaxTree
 
+# ---------------------------------------------------------------------------
+# Tree-sitter -> lossless xr-source conversion
+# ---------------------------------------------------------------------------
 
 class TreeSitterSyntaxParser:
     """Convert a Tree-sitter concrete syntax tree into the xr-source lossless model.
@@ -127,6 +130,8 @@ class TreeSitterSyntaxParser:
             error=node.is_error,
         )
 
+    # Diagnostics are recorded separately from fidelity. A file may contain
+    # parser errors and still round-trip byte-for-byte.
     @staticmethod
     def _diagnostics(root: Node) -> list[Diagnostic]:
         diagnostics: list[Diagnostic] = []
@@ -146,6 +151,8 @@ class TreeSitterSyntaxParser:
         return diagnostics
 
 
+# Runtime parser schema is intentionally smaller than LanguageGrammar: it tells
+# us which kind/field ids the loaded binary exports, not how nodes are structured.
 def _schema(language_name: str, language: Language) -> ParserSchema:
     kinds = tuple(
         ParserKindInfo(

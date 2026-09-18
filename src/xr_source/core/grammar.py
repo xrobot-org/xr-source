@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Any
 
+# ---------------------------------------------------------------------------
+# Language-neutral grammar contracts
+# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True, slots=True)
 class GrammarTypeRef:
@@ -163,6 +166,8 @@ class LanguageGrammar:
             pending.extend(spec.subtypes)
         return False
 
+        # node-types.json is treated as versioned source data, not copied into a
+    # handwritten class hierarchy. This keeps grammar upgrades auditable.
     @classmethod
     def from_node_types(
         cls,

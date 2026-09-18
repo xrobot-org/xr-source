@@ -8,6 +8,9 @@ from .grammar import CMAKE_GRAMMAR
 from .parser import CMakeParser
 from .view import CMakeCommandView
 
+# ---------------------------------------------------------------------------
+# CMake document queries using the shared syntax core
+# ---------------------------------------------------------------------------
 
 class CMakeDocument(SyntaxDocument):
     """CMake-specific query facade over the same immutable syntax core used by C++."""

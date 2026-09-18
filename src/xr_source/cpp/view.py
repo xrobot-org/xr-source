@@ -14,6 +14,9 @@ from .syntax_utils import (
     find_function_declarator,
 )
 
+# ---------------------------------------------------------------------------
+# Typed convenience views over the complete C++ syntax tree
+# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True, slots=True)
 class CppIncludeView:
@@ -225,6 +228,8 @@ class CppCallView:
         return arguments.named_syntax_children
 
 
+# Class/member convenience helpers stop at source structure. They do not resolve
+# inherited constructors, overload viability, or compiler type conversions.
 @dataclass(frozen=True, slots=True)
 class CppClassView:
     """Convenience class/struct view that tracks C++ access sections while scanning members."""

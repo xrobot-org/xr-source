@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{name = "XRobot contributors"}]
+keywords = ["C++", "CMake", "source transformation", "code generation", "XRobot"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Operating System :: OS Independent",
@@ -26,6 +27,11 @@ dependencies = [
     "tree-sitter==0.25.2",
     "tree-sitter-cpp==0.23.4",
 ]
+
+[project.urls]
+Homepage = "https://github.com/xrobot-org/xr-source"
+Repository = "https://github.com/xrobot-org/xr-source"
+"Bug Tracker" = "https://github.com/xrobot-org/xr-source/issues"
 
 [project.optional-dependencies]
 cmake = [

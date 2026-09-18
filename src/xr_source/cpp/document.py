@@ -25,6 +25,9 @@ from .view import (
     CppVariableView,
 )
 
+# ---------------------------------------------------------------------------
+# Protected source regions
+# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True, slots=True)
 class CppRegion:
@@ -36,6 +39,10 @@ class CppRegion:
     body_span: SourceSpan
     body_text: str
 
+
+# ---------------------------------------------------------------------------
+# C++ document queries
+# ---------------------------------------------------------------------------
 
 class CppDocument(SyntaxDocument):
     """C++-specific query/edit facade over the complete generic syntax tree.
@@ -139,6 +146,9 @@ class CppDocument(SyntaxDocument):
         """Wrap matching call expressions in CppCallView."""
         return tuple(CppCallView(node) for node in self.calls(name))
 
+    # Tree-sitter represents several declaration forms through the same generic
+    # declaration node. This helper narrows only obvious variable declarators;
+    # it is not intended to reproduce the compiler's declaration semantics.
     def variable_views(
         self,
         name: str | None = None,
@@ -195,6 +205,8 @@ class CppDocument(SyntaxDocument):
             end=re.compile(r"//\s*NOLINTEND\b"),
         )
 
+    # Region pairing is a source convention layered on ordinary C++ comments.
+    # It deliberately lives above the grammar instead of modifying the parser.
     def _paired_comment_regions(
         self,
         *,

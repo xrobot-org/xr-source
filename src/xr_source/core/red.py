@@ -12,6 +12,10 @@ if TYPE_CHECKING:
     from .tree import SyntaxTree
 
 
+# ---------------------------------------------------------------------------
+# Snapshot-specific red views
+# ---------------------------------------------------------------------------
+
 class SyntaxElement:
     """Snapshot-specific view that adds parent, field, index and byte offset to a green element.
 
@@ -105,6 +109,7 @@ class SyntaxElement:
         return f"{type(self).__name__}(kind={self.kind!r}, span={self.span!r})"
 
 
+# Red nodes derive parent/offset information from one owning SyntaxTree.
 class SyntaxNode(SyntaxElement):
     """Parent-aware view of a GreenNode with traversal and field-query helpers."""
 
@@ -247,6 +252,8 @@ class SyntaxTrivia(SyntaxElement):
         return self._green  # type: ignore[return-value]
 
 
+# Central green -> red adapter. Keep construction here so all red views use the
+# same parent/index/offset rules.
 def _wrap(
     tree: SyntaxTree,
     child: GreenChild,

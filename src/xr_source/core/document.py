@@ -10,6 +10,9 @@ from .green import GreenElement
 from .red import SyntaxElement, SyntaxNode, SyntaxToken
 from .tree import SyntaxTree
 
+# ---------------------------------------------------------------------------
+# Language-neutral document facade
+# ---------------------------------------------------------------------------
 
 class SyntaxParserProtocol(Protocol):
     """Minimal parser contract required by SyntaxDocument."""
@@ -75,6 +78,9 @@ class SyntaxDocument:
             return None
         return grammar.node(element.kind, named=element.named)
 
+    # High-level edits deliberately return a fresh reparsed snapshot. The
+    # low-level tree API can preserve green sharing, but document consumers must
+    # never observe stale parser field labels or diagnostics after an edit.
     def replace(
         self: DocumentT,
         target: SyntaxElement,

@@ -8,6 +8,9 @@ from typing import TypeAlias
 
 from .text import encode_source
 
+# ---------------------------------------------------------------------------
+# Immutable green storage
+# ---------------------------------------------------------------------------
 
 class _GreenMixin:
     def render(self) -> str:
@@ -57,6 +60,7 @@ class GreenToken(_GreenMixin):
         return len(encode_source(self.text))
 
 
+# Every green child is either syntax (node/token) or preserved source trivia.
 GreenElement: TypeAlias = "GreenNode | GreenToken | GreenTrivia"
 
 
@@ -67,6 +71,8 @@ class GreenChild:
     field: str | None = None
 
 
+# Green nodes never carry parent pointers or absolute positions. Those belong to
+# the red view layer, which keeps green subtrees reusable across snapshots.
 @dataclass(frozen=True)
 class GreenNode(_GreenMixin):
     """Immutable, position-independent syntax node.

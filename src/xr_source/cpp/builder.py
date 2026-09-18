@@ -11,6 +11,9 @@ from xr_source.format import Group, Indent, concat, hardline, join, render, soft
 from .document import CppDocument
 from .factory import CppFactory
 
+# ---------------------------------------------------------------------------
+# Structured generation helpers
+# ---------------------------------------------------------------------------
 
 @dataclass(slots=True)
 class CppBlockBuilder:
@@ -126,6 +129,8 @@ class CppFunctionBuilder:
         return self.factory.declaration(source)
 
 
+# FileBuilder is ergonomic mutable state only. build() always returns an
+# immutable parser-backed CppDocument, so generated and parsed source converge.
 @dataclass(slots=True)
 class CppFileBuilder:
     """Top-level C++ source/header builder using CppFactory fragments."""

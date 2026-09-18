@@ -6,6 +6,9 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
 
+# ---------------------------------------------------------------------------
+# Layout document IR
+# ---------------------------------------------------------------------------
 
 class Doc:
     """Base type for the language-neutral layout document IR."""
@@ -51,6 +54,8 @@ class IfBreak(Doc):
     flat: Doc
 
 
+# Rendering alternates between FLAT and BREAK modes. Only Group decides which
+# mode to use; Line nodes simply obey that decision.
 class _Mode(Enum):
     FLAT = 1
     BREAK = 2
@@ -100,6 +105,8 @@ def join(separator: Doc | str, docs: Iterable[Doc | str]) -> Doc:
     return Concat(tuple(result))
 
 
+# Resolve layout decisions without touching parsed source trivia. Parsed source
+# uses normal render(); this formatter is for newly generated source.
 def render(doc: Doc, *, width: int = 88, indent: str = "  ") -> str:
     """Resolve groups/line breaks into final text for the requested width and indent unit."""
     output: list[str] = []
