@@ -1,3 +1,5 @@
+"""Versioned structural grammar contracts loaded from Tree-sitter node-types metadata."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,22 +9,34 @@ from typing import Any
 
 @dataclass(frozen=True, slots=True)
 class GrammarTypeRef:
+    """Identify one grammar type by Tree-sitter kind name and named/anonymous status.
+
+    The named bit is part of the identity because Tree-sitter may expose the same
+    spelling as both a named node and an anonymous token.
+    """
     kind: str
     named: bool
 
 
 @dataclass(frozen=True, slots=True)
 class GrammarSlot:
+    """Describe the allowed contents of one grammar field or generic child slot."""
     multiple: bool
     required: bool
     types: tuple[GrammarTypeRef, ...]
 
     def accepts(self, kind: str, *, named: bool) -> bool:
+        """Return whether this slot directly permits the requested grammar type."""
         return GrammarTypeRef(kind, named) in self.types
 
 
 @dataclass(frozen=True)
 class GrammarNodeSpec:
+    """Structural contract for one syntax kind from node-types.json.
+
+    This is grammar metadata, not a parsed source node. It records named fields,
+    generic child constraints, root status and abstract subtype relationships.
+    """
     kind: str
     named: bool
     root: bool = False
@@ -32,14 +46,22 @@ class GrammarNodeSpec:
 
     @cached_property
     def field_names(self) -> tuple[str, ...]:
+        """Return named grammar-field labels in deterministic order."""
         return tuple(name for name, _ in self.fields)
 
     def field(self, name: str) -> GrammarSlot | None:
+        """Return the contract for a named field, or None when the kind has no such field."""
         return next((slot for field_name, slot in self.fields if field_name == name), None)
 
 
 @dataclass(frozen=True)
 class LanguageGrammar:
+    """Versioned language grammar independent of the parser runtime object.
+
+    Consumers can inspect the complete syntax contract without importing or
+    retaining Tree-sitter Node objects. source_revision/source_sha256 make the
+    packaged contract auditable against the upstream grammar revision.
+    """
     language: str
     version: str
     source_revision: str
@@ -52,10 +74,12 @@ class LanguageGrammar:
 
     @cached_property
     def kind_names(self) -> frozenset[str]:
+        """Return every kind spelling present in the packaged grammar metadata."""
         return frozenset(node.kind for node in self.nodes)
 
     @cached_property
     def roots(self) -> tuple[GrammarNodeSpec, ...]:
+        """Return grammar kinds marked as valid source roots."""
         return tuple(node for node in self.nodes if node.root)
 
     def node(
@@ -64,6 +88,11 @@ class LanguageGrammar:
         *,
         named: bool | None = None,
     ) -> GrammarNodeSpec | None:
+        """Look up a grammar kind.
+
+        Pass named= when a spelling exists as both a named node and an anonymous token;
+        omitting it for an ambiguous spelling raises instead of silently choosing one.
+        """
         if named is not None:
             return self._node_map.get((kind, named))
         matches = tuple(
@@ -85,6 +114,7 @@ class LanguageGrammar:
         *,
         named: bool | None = None,
     ) -> GrammarNodeSpec:
+        """Return a grammar kind or raise KeyError when the requested identity is absent."""
         node = self.node(kind, named=named)
         if node is None:
             suffix = "" if named is None else f", named={named}"
@@ -97,6 +127,7 @@ class LanguageGrammar:
         *,
         named: bool = True,
     ) -> tuple[GrammarTypeRef, ...]:
+        """Return the direct grammar-defined subtypes of an abstract syntax kind."""
         return self.require_node(kind, named=named).subtypes
 
     def is_subtype(
@@ -107,6 +138,11 @@ class LanguageGrammar:
         actual_named: bool = True,
         expected_named: bool = True,
     ) -> bool:
+        """Test transitive subtype membership using only grammar metadata.
+
+        This is a syntactic classification helper; it performs no C++ type-system or
+        semantic analysis.
+        """
         actual = GrammarTypeRef(actual_kind, actual_named)
         expected = GrammarTypeRef(expected_kind, expected_named)
         if actual == expected:
@@ -137,6 +173,7 @@ class LanguageGrammar:
         source_sha256: str,
         data: list[dict[str, Any]],
     ) -> LanguageGrammar:
+        """Build a validated grammar contract from decoded Tree-sitter node-types.json data."""
         nodes = tuple(_node_spec(item) for item in data)
         keys = [(node.kind, node.named) for node in nodes]
         if len(keys) != len(set(keys)):

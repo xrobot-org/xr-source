@@ -1,3 +1,5 @@
+"""Structured C++ file, function, and block builders layered on CppFactory."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -12,17 +14,25 @@ from .factory import CppFactory
 
 @dataclass(slots=True)
 class CppBlockBuilder:
+    """Mutable convenience accumulator for constructing one C++ compound body.
+
+    The builder is only an ergonomic front-end; build products are immutable parser-
+    backed GreenElements.
+    """
     factory: CppFactory
     items: list[GreenElement] = field(default_factory=list)
 
     def add(self, element: GreenElement) -> GreenElement:
+        """Append the element to this builder and return it."""
         self.items.append(element)
         return element
 
     def statement(self, source: str) -> GreenElement:
+        """Create and append one statement."""
         return self.add(self.factory.statement(source))
 
     def call(self, callee: str, arguments: Iterable[str] = ()) -> GreenElement:
+        """Create and append one call statement."""
         return self.add(self.factory.call_statement(callee, arguments))
 
     def variable(
@@ -33,6 +43,7 @@ class CppBlockBuilder:
         initializer: str | None = None,
         storage: Iterable[str] = (),
     ) -> GreenElement:
+        """Create and append one variable declaration."""
         return self.add(
             self.factory.variable(
                 cpp_type,
@@ -47,20 +58,25 @@ class CppBlockBuilder:
         name: str,
         body: Iterable[GreenElement] = (),
     ) -> GreenElement:
+        """Create or append a paired User Code region."""
         return self.add(self.factory.user_region(name, body))
 
     def format_disabled(self, body: Iterable[GreenElement]) -> GreenElement:
+        """Create or append a clang-format disabled region."""
         return self.add(self.factory.format_region(body))
 
     def lint_disabled(self, body: Iterable[GreenElement]) -> GreenElement:
+        """Create or append a NOLINT disabled region."""
         return self.add(self.factory.lint_region(body))
 
     def raw(self, source: str) -> GreenElement:
+        """Append or create opaque source text without interpreting its internal structure."""
         return self.add(self.factory.raw(source))
 
 
 @dataclass(slots=True)
 class CppFunctionBuilder:
+    """Collect a function signature/body before producing parser-backed syntax."""
     factory: CppFactory
     return_type: str
     name: str
@@ -72,10 +88,12 @@ class CppFunctionBuilder:
         self.body = CppBlockBuilder(self.factory)
 
     def parameter(self, cpp_type: str, name: str) -> CppFunctionBuilder:
+        """Append one source-level function parameter."""
         self.parameters.append((cpp_type, name))
         return self
 
     def build(self) -> GreenElement:
+        """Render the signature/body through the layout IR and parse the result as C++ syntax."""
         params = [
             concat(cpp_type, " ", name)
             for cpp_type, name in self.parameters
@@ -110,6 +128,7 @@ class CppFunctionBuilder:
 
 @dataclass(slots=True)
 class CppFileBuilder:
+    """Top-level C++ source/header builder using CppFactory fragments."""
     factory: CppFactory = field(default_factory=CppFactory)
     header: bool = False
     items: list[GreenElement | CppFunctionBuilder] = field(default_factory=list)
@@ -119,25 +138,32 @@ class CppFileBuilder:
             self.items.append(self.factory.directive("#pragma once"))
 
     def add(self, element: GreenElement) -> GreenElement:
+        """Append the element to this builder and return it."""
         self.items.append(element)
         return element
 
     def include(self, header: str, *, system: bool = False) -> GreenElement:
+        """Create or append one include directive."""
         return self.add(self.factory.include(header, system=system))
 
     def comment(self, text: str, *, block: bool = False) -> GreenElement:
+        """Append or create a source comment."""
         return self.add(self.factory.comment(text, block=block))
 
     def raw(self, source: str) -> GreenElement:
+        """Append or create opaque source text without interpreting its internal structure."""
         return self.add(self.factory.raw(source))
 
     def format_disabled(self, body: Iterable[GreenElement]) -> GreenElement:
+        """Create or append a clang-format disabled region."""
         return self.add(self.factory.format_region(body))
 
     def lint_disabled(self, body: Iterable[GreenElement]) -> GreenElement:
+        """Create or append a NOLINT disabled region."""
         return self.add(self.factory.lint_region(body))
 
     def declaration(self, source: str) -> GreenElement:
+        """Create or append one declaration."""
         return self.add(self.factory.declaration(source))
 
     def variable(
@@ -148,6 +174,7 @@ class CppFileBuilder:
         initializer: str | None = None,
         storage: Iterable[str] = (),
     ) -> GreenElement:
+        """Create and append one variable declaration."""
         return self.add(
             self.factory.variable(
                 cpp_type,
@@ -165,6 +192,7 @@ class CppFileBuilder:
         parameters: Iterable[tuple[str, str]] = (),
         prefix: Iterable[str] = (),
     ) -> CppFunctionBuilder:
+        """Create a function builder in source order."""
         function = CppFunctionBuilder(
             self.factory,
             return_type,
@@ -180,9 +208,11 @@ class CppFileBuilder:
         name: str,
         body: Iterable[GreenElement] = (),
     ) -> GreenElement:
+        """Create or append a paired User Code region."""
         return self.add(self.factory.user_region(name, body))
 
     def build(self) -> CppDocument:
+        """Render accumulated fragments, parse the complete file and return a CppDocument."""
         rendered: list[str] = []
         for item in self.items:
             element = item.build() if isinstance(item, CppFunctionBuilder) else item

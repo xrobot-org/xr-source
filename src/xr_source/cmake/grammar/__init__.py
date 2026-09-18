@@ -1,3 +1,5 @@
+"""Checksummed CMake grammar metadata pinned to the language-pack upstream revision."""
+
 from __future__ import annotations
 
 import hashlib

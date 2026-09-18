@@ -1,3 +1,5 @@
+"""High-level CMake document queries over the generic syntax model."""
+
 from __future__ import annotations
 
 from xr_source.core import SyntaxDocument, SyntaxElement, SyntaxNode
@@ -8,6 +10,7 @@ from .view import CMakeCommandView
 
 
 class CMakeDocument(SyntaxDocument):
+    """CMake-specific query facade over the same immutable syntax core used by C++."""
     __slots__ = ()
 
     language = "cmake"
@@ -21,6 +24,7 @@ class CMakeDocument(SyntaxDocument):
         source_name: str | None = None,
         parser: CMakeParser | None = None,
     ) -> CMakeDocument:
+        """Parse CMake source using the optional pinned language-pack grammar."""
         selected = parser or CMakeParser()
         return cls(
             selected.parse(source, source_name=source_name),
@@ -28,9 +32,11 @@ class CMakeDocument(SyntaxDocument):
         )
 
     def comments(self) -> tuple[SyntaxElement, ...]:
+        """Return CMake comments in source order."""
         return self.elements("comment")
 
     def commands(self, name: str | None = None) -> tuple[SyntaxNode, ...]:
+        """Return command nodes, optionally filtered case-insensitively by command name."""
         nodes = tuple(
             node
             for node in self.root.descendants(include_self=True)
@@ -47,9 +53,11 @@ class CMakeDocument(SyntaxDocument):
         )
 
     def command_views(self, name: str | None = None) -> tuple[CMakeCommandView, ...]:
+        """Return typed command views, optionally filtered by command name."""
         return tuple(CMakeCommandView(node) for node in self.commands(name))
 
     def blocks(self) -> tuple[SyntaxNode, ...]:
+        """Return structured block nodes such as if/foreach/while/function/macro constructs."""
         kinds = {
             "if_condition",
             "foreach_loop",

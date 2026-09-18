@@ -8,9 +8,9 @@ preprocessor configuration.
 
 ## Unit and static checks
 
-- pytest: 35/35 on Python 3.12.3.
-- Python 3.10.21: 35/35.
-- Python 3.14.7: 35/35.
+- pytest: 36/36 on Python 3.12.3.
+- Python 3.10.21: 36/36.
+- Python 3.14.7: 36/36.
 - mypy strict: no issues in the package sources.
 - ruff: required clean before the milestone commit.
 - package: sdist and pure-Python wheel build successfully.

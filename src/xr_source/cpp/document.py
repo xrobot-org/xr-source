@@ -1,3 +1,5 @@
+"""High-level C++ document queries and protected-region editing helpers."""
+
 from __future__ import annotations
 
 import re
@@ -26,6 +28,7 @@ from .view import (
 
 @dataclass(frozen=True, slots=True)
 class CppRegion:
+    """Paired source-marker region such as User Code, clang-format or NOLINT."""
     kind: str
     name: str | None
     begin: SyntaxElement
@@ -35,6 +38,11 @@ class CppRegion:
 
 
 class CppDocument(SyntaxDocument):
+    """C++-specific query/edit facade over the complete generic syntax tree.
+
+    This layer may classify source structure, but it intentionally does not perform
+    name lookup, overload resolution, template instantiation or type inference.
+    """
     __slots__ = ()
 
     language = "cpp"
@@ -48,6 +56,7 @@ class CppDocument(SyntaxDocument):
         source_name: str | None = None,
         parser: CppParser | None = None,
     ) -> CppDocument:
+        """Parse C++ source with the validated default parser while preserving source identity."""
         selected = parser or CppParser()
         return cls(
             selected.parse(source, source_name=source_name),
@@ -55,6 +64,7 @@ class CppDocument(SyntaxDocument):
         )
 
     def is_expression(self, element: SyntaxElement) -> bool:
+        """Classify an element through the packaged grammar subtype graph."""
         if not isinstance(element, (SyntaxNode, SyntaxToken)):
             return False
         return self.grammar.is_subtype(
@@ -64,6 +74,7 @@ class CppDocument(SyntaxDocument):
         )
 
     def is_statement(self, element: SyntaxElement) -> bool:
+        """Classify an element through the packaged grammar subtype graph."""
         if not isinstance(element, (SyntaxNode, SyntaxToken)):
             return False
         return self.grammar.is_subtype(
@@ -73,6 +84,7 @@ class CppDocument(SyntaxDocument):
         )
 
     def replace_region_body(self, region: CppRegion, body: str) -> CppDocument:
+        """Replace only the bytes between a paired region marker and reparse the result."""
         source = self.render_bytes()
         replacement = encode_source(body)
         changed = (
@@ -83,39 +95,48 @@ class CppDocument(SyntaxDocument):
         return self._reparse(changed)
 
     def includes(self) -> tuple[SyntaxNode, ...]:
+        """Return raw preprocessor include syntax nodes."""
         return self.nodes("preproc_include")
 
     def include_views(self) -> tuple[CppIncludeView, ...]:
+        """Return typed convenience views for all include directives."""
         return tuple(CppIncludeView(node) for node in self.includes())
 
     def comments(self) -> tuple[SyntaxElement, ...]:
+        """Return parser comment elements in source order."""
         return self.elements("comment")
 
     def functions(self, name: str | None = None) -> tuple[SyntaxNode, ...]:
+        """Return function definitions, optionally filtered by source-level name."""
         nodes = self.nodes("function_definition")
         if name is None:
             return nodes
         return tuple(node for node in nodes if declaration_name(node) == name)
 
     def classes(self, name: str | None = None) -> tuple[SyntaxNode, ...]:
+        """Return class/struct specifiers, optionally filtered by source-level name."""
         nodes = self.nodes("class_specifier") + self.nodes("struct_specifier")
         if name is None:
             return nodes
         return tuple(node for node in nodes if field_text(node, "name") == name)
 
     def calls(self, name: str | None = None) -> tuple[SyntaxNode, ...]:
+        """Return call expressions, optionally filtered by exact callee source text."""
         nodes = self.nodes("call_expression")
         if name is None:
             return nodes
         return tuple(node for node in nodes if field_text(node, "function") == name)
 
     def function_views(self, name: str | None = None) -> tuple[CppFunctionView, ...]:
+        """Wrap matching function definitions in CppFunctionView."""
         return tuple(CppFunctionView(node) for node in self.functions(name))
 
     def class_views(self, name: str | None = None) -> tuple[CppClassView, ...]:
+        """Wrap matching class or struct specifiers in CppClassView."""
         return tuple(CppClassView(node) for node in self.classes(name))
 
     def call_views(self, name: str | None = None) -> tuple[CppCallView, ...]:
+        """Wrap matching call expressions in CppCallView."""
         return tuple(CppCallView(node) for node in self.calls(name))
 
     def variable_views(
@@ -124,6 +145,11 @@ class CppDocument(SyntaxDocument):
         *,
         global_scope: bool | None = None,
     ) -> tuple[CppVariableView, ...]:
+        """Return variable-like declarations, optionally filtered by name and lexical scope.
+
+        Function declarators are explicitly excluded; this is a convenience source view,
+        not compiler-level declaration classification.
+        """
         result: list[CppVariableView] = []
         for declaration in self.nodes("declaration"):
             for declarator in declaration.children_by_field("declarator"):
@@ -141,10 +167,12 @@ class CppDocument(SyntaxDocument):
         return tuple(result)
 
     def declarations(self) -> tuple[SyntaxNode, ...]:
+        """Return common declaration-like syntax nodes."""
         kinds = ("declaration", "function_definition", "template_declaration")
         return tuple(node for kind in kinds for node in self.nodes(kind))
 
     def user_regions(self) -> tuple[CppRegion, ...]:
+        """Find paired STM32-style User Code Begin/End comment regions."""
         return self._paired_comment_regions(
             kind="user",
             begin=re.compile(r"/\*\s*User Code Begin(?:\s+(.+?))?\s*\*/"),
@@ -152,6 +180,7 @@ class CppDocument(SyntaxDocument):
         )
 
     def format_regions(self) -> tuple[CppRegion, ...]:
+        """Find paired clang-format off/on comment regions."""
         return self._paired_comment_regions(
             kind="format",
             begin=re.compile(r"//\s*clang-format\s+off\b"),
@@ -159,6 +188,7 @@ class CppDocument(SyntaxDocument):
         )
 
     def lint_regions(self) -> tuple[CppRegion, ...]:
+        """Find paired NOLINTBEGIN/NOLINTEND comment regions."""
         return self._paired_comment_regions(
             kind="lint",
             begin=re.compile(r"//\s*NOLINTBEGIN\b"),

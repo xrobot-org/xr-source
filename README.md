@@ -72,4 +72,4 @@ builder.command("project", ["Demo", "LANGUAGES", "CXX"])
 builder.command("add_library", ["foo", "STATIC", "foo.cpp"])
 ```
 
-See docs/ARCHITECTURE.md and docs/ROADMAP.md.
+For code review, start with `docs/REVIEW_GUIDE.md`; it reduces the runtime design to eight files and lists the core invariants. See `docs/ARCHITECTURE.md` and `docs/ROADMAP.md` for the full design and migration plan.

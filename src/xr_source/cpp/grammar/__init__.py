@@ -1,3 +1,5 @@
+"""Checksummed C++ grammar metadata pinned to the validated upstream revision."""
+
 from __future__ import annotations
 
 import hashlib

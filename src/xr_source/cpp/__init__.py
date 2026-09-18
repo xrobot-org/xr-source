@@ -1,3 +1,5 @@
+"""C++ frontend: parser, grammar metadata, structured queries, views, and builders."""
+
 from .builder import CppBlockBuilder, CppFileBuilder, CppFunctionBuilder
 from .document import CppDocument, CppRegion
 from .factory import CppFactory

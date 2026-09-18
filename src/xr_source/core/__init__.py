@@ -1,3 +1,5 @@
+"""Core immutable syntax, grammar, span, document, and parser-schema abstractions."""
+
 from .diagnostic import Diagnostic
 from .document import SyntaxDocument, SyntaxParserProtocol
 from .grammar import (

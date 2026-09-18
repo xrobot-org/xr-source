@@ -1,3 +1,5 @@
+"""Factories for creating parser-backed CMake command and block fragments."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -10,6 +12,7 @@ from .parser import CMakeParser
 
 
 class CMakeFactory:
+    """Create parser-backed CMake fragments using the shared layout IR."""
     def __init__(
         self,
         parser: CMakeParser | None = None,
@@ -20,9 +23,11 @@ class CMakeFactory:
         self.width = width
 
     def raw(self, source: str) -> GreenElement:
+        """Create opaque CMake source when a typed command helper is inappropriate."""
         return GreenToken("raw", source, named=True)
 
     def comment(self, text: str) -> GreenElement:
+        """Create one CMake line-comment fragment."""
         return self._first(f"# {text}\n", "comment").green
 
     def command(
@@ -30,6 +35,7 @@ class CMakeFactory:
         name: str,
         arguments: Iterable[str] = (),
     ) -> GreenElement:
+        """Create one CMake command with width-aware argument layout."""
         document = Group(
             concat(
                 name,
@@ -52,6 +58,7 @@ class CMakeFactory:
         condition: Iterable[str],
         body: Iterable[GreenElement],
     ) -> GreenElement:
+        """Create a complete if()/endif() block from structured condition/body fragments."""
         opening = self.command("if", condition).render().rstrip("\r\n")
         closing = "endif()"
         body_text = "".join(element.render() for element in body)

@@ -1,3 +1,5 @@
+"""Public package surface for the language-neutral source model and C++ frontend."""
+
 from .core import (
     Diagnostic,
     GreenChild,

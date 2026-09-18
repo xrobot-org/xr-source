@@ -1,3 +1,5 @@
+"""CMake parser configuration sourced from the pinned language-pack grammar."""
+
 from __future__ import annotations
 
 from tree_sitter import Language
@@ -18,6 +20,7 @@ def _cmake_language() -> Language:
 
 
 class CMakeParser(TreeSitterSyntaxParser):
+    """CMake parser backend loaded from the pinned language-pack grammar revision."""
     grammar = CMAKE_GRAMMAR
 
     def __init__(self) -> None:

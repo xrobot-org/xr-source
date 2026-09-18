@@ -1,3 +1,5 @@
+"""Immutable syntax-tree snapshot and low-level structural edit operations."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -11,6 +13,12 @@ from .text import encode_source
 
 @dataclass(frozen=True, slots=True)
 class SyntaxTree:
+    """Immutable language syntax snapshot backed by a green root.
+
+    The tree owns diagnostics/source identity and creates red views on demand. Its
+    edit methods are intentionally low-level: they preserve structural sharing but
+    do not invoke the language parser again.
+    """
     language: str
     green_root: GreenNode
     diagnostics: tuple[Diagnostic, ...] = ()
@@ -18,6 +26,7 @@ class SyntaxTree:
 
     @property
     def root(self) -> SyntaxNode:
+        """Create the red root view for this immutable snapshot."""
         return SyntaxNode(
             self,
             self.green_root,
@@ -28,9 +37,11 @@ class SyntaxTree:
         )
 
     def render(self) -> str:
+        """Render the complete represented source without normalization."""
         return self.green_root.render()
 
     def render_bytes(self) -> bytes:
+        """Render the complete represented source as bytes."""
         return encode_source(self.render())
 
     def replace(
@@ -38,6 +49,7 @@ class SyntaxTree:
         target: SyntaxElement,
         replacement: SyntaxElement | GreenElement,
     ) -> SyntaxTree:
+        """Persistently replace one element, reusing unaffected green subtrees."""
         self._check_target(target)
         green = replacement.green if isinstance(replacement, SyntaxElement) else replacement
         if not target.path:
@@ -47,6 +59,7 @@ class SyntaxTree:
         return self._with_root(_replace_at(self.green_root, target.path, green))
 
     def remove(self, target: SyntaxElement) -> SyntaxTree:
+        """Persistently remove one non-root element."""
         self._check_target(target)
         if not target.path:
             raise ValueError("cannot remove the syntax tree root")
@@ -59,6 +72,7 @@ class SyntaxTree:
         *,
         separator: str = "",
     ) -> SyntaxTree:
+        """Persistently insert elements before a non-root target."""
         self._check_target(target)
         if not target.path:
             raise ValueError("cannot insert beside the syntax tree root")
@@ -77,6 +91,7 @@ class SyntaxTree:
         *,
         separator: str = "",
     ) -> SyntaxTree:
+        """Persistently insert elements after a non-root target."""
         self._check_target(target)
         if not target.path:
             raise ValueError("cannot insert beside the syntax tree root")

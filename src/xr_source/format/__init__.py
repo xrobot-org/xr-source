@@ -1,3 +1,5 @@
+"""Public layout-document primitives used by language-specific source formatters."""
+
 from .document import (
     Concat,
     Doc,
