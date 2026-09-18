@@ -7,8 +7,8 @@ from dataclasses import dataclass
 
 from xr_source.core import Diagnostic, GreenChild, GreenElement, GreenNode, SourcePoint, SourceSpan
 
-from .lexer import _BINARY_PRECEDENCE, _CONTROL
 from ._support import _ParserSupport
+from .lexer import _BINARY_PRECEDENCE, _CONTROL
 
 
 @dataclass(frozen=True, slots=True)

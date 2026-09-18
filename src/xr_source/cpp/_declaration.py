@@ -5,8 +5,8 @@ from __future__ import annotations
 from xr_source.core import GreenNode, GreenToken
 
 from ._ranges import _Replacement
-from .lexer import _CONTROL, _STORAGE, _TYPE_WORDS
 from ._support import _ParserSupport
+from .lexer import _CONTROL, _STORAGE, _TYPE_WORDS
 
 
 class _DeclarationMixin(_ParserSupport):

@@ -5,8 +5,8 @@ from __future__ import annotations
 from xr_source.core import GreenChild, GreenElement, GreenNode, GreenToken
 
 from ._ranges import _Replacement
-from .lexer import _CONTROL, _LITERAL_KINDS, _QUALIFIERS, _STORAGE, _TYPE_WORDS
 from ._support import _ParserSupport
+from .lexer import _CONTROL, _LITERAL_KINDS, _QUALIFIERS, _STORAGE, _TYPE_WORDS
 
 
 class _DeclaratorMixin(_ParserSupport):
@@ -269,10 +269,7 @@ class _DeclaratorMixin(_ParserSupport):
 
         # `Foo value;` 这类两个 identifier 连续出现，本身不构成合法普通表达式。
         before_name = self._previous_significant(name - 1, first_index)
-        return (
-            before_name is not None
-            and self.lexemes[before_name].kind == "identifier"
-        )
+        return before_name is not None and self.lexemes[before_name].kind == "identifier"
 
     def _specifier_replacements(self, start: int, end: int) -> list[_Replacement]:
         """把 storage/type qualifier 包装成稳定 named node，供 convenience view 查询。"""

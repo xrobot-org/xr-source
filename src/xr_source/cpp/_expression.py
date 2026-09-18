@@ -5,8 +5,8 @@ from __future__ import annotations
 from xr_source.core import GreenElement, GreenNode, GreenToken
 
 from ._ranges import _deduplicate_replacements, _Replacement
-from .lexer import _LITERAL_KINDS
 from ._support import _ParserSupport
+from .lexer import _LITERAL_KINDS
 
 
 class _ExpressionMixin(_ParserSupport):
