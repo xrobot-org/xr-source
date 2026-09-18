@@ -1,0 +1,36 @@
+name: apply-chinese-docs
+
+on:
+  push:
+    branches:
+      - feat/source-model-20260918
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 应用中文文档与代码说明
+        run: |
+          cat .github/doc-transfer/* > /tmp/xr-changes.b64
+          base64 -d /tmp/xr-changes.b64 > /tmp/xr-changes.tar.gz
+          tar -xzf /tmp/xr-changes.tar.gz
+          python tools/check_chinese_docs.py
+          python -m compileall -q src tests tools
+      - name: 清理临时文件并提交
+        run: |
+          git rm -r .github/doc-transfer
+          git rm .github/workflows/apply-chinese-docs.yml
+          git rm .github/workflows/chinese-doc-audit.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add Chinese documentation and code comments"
+          git push
