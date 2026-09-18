@@ -1,38 +1,42 @@
 # Roadmap
 
-## Milestone 0: source core and C++ proof
+## Milestone 0: source core and native C++ proof
 
 - Immutable green/red syntax model.
-- Full-fidelity Tree-sitter adapter.
-- C++ generic syntax schema and common views.
+- Self-contained, full-fidelity C++ lexer and structural parser.
+- Native C++ grammar contract and common typed views.
 - Structured builders for files/functions/blocks.
 - Separate layout/format document IR.
-- Real XRobot ecosystem round-trip and Module-constructor compatibility evidence.
+- Base wheel with no C++ parser runtime dependency.
 
-## Milestone 1: harden C++ representation
+## Milestone 1: harden native C++ representation
 
-- Evaluate the newer language-pack C++ revision (`8b5b49e…`, including C++26 reflection/splice syntax) against the same full ecosystem corpus before changing the default parser provider.
-- Generate additional typed convenience wrappers from the packaged C++ grammar schema instead of hand-writing a large AST.
-- Add first-class preprocessor and declarator conveniences.
+- Rerun the full historical ecosystem corpus against the native parser and make
+  the native results the new fidelity baseline.
+- Rerun XRobot Module constructor-interface parity against the native parser.
+- Expand syntax classification only from concrete consumer/corpus failures;
+  preserve generic lossless fallback for ambiguous constructs.
+- Add first-class preprocessor and declarator conveniences where consumers need
+  them.
 - Add source-line indexing and stable diagnostics after incremental edits.
 - Benchmark and optimize large vendored translation units.
-- Add optional compiler-semantic provider without coupling it to the syntax core.
+- Add an optional compiler-semantic provider without coupling it to the syntax
+  core.
 
 ## Milestone 2: consumer migration
 
-- Migrate XRobot registration and Module interface reads behind xr-source adapters.
-- Migrate xrobot_main generation to CppFileBuilder.
+- Migrate XRobot registration and Module interface reads behind xr-source
+  adapters.
+- Migrate xrobot_main generation to `CppFileBuilder`.
 - Migrate LibXR app_main generation and protected user regions.
 - Remove duplicated regex/string-printer paths only after golden-output parity.
 
 ## Milestone 3: CMake frontend
 
-Initial frontend implemented on the same core/tree/rewrite/layout layers.
-It is an optional extra backed by `tree-sitter-language-pack 1.20.0`, which
-ships cross-platform binary wheels and has been verified with the package's
-pinned Tree-sitter 0.25.2 runtime. The direct
-`tree-sitter-cmake` package is deliberately not a base dependency because its
-published metadata targets Tree-sitter 0.24 and source installation may require
-a local Python development toolchain. Harden block/function/macro convenience
-views only as real consumers require them; do not introduce a second rewrite
-engine.
+The initial CMake frontend is implemented on the same
+core/tree/rewrite/layout layers. It remains an optional extra backed by
+`tree-sitter-language-pack`.
+
+Tree-sitter in this optional frontend is not a dependency of the native C++
+frontend. Harden CMake block/function/macro convenience views only as real
+consumers require them; do not introduce a second rewrite engine.

@@ -45,4 +45,19 @@ jobs:
       - run: python -m build
       - run: python -m twine check dist/*
       - run: python -m pip install dist/*.whl
-      - run: python -c "from xr_source.cpp import CppDocument; assert CppDocument.parse('int x;').render() == 'int x;'"
+      - name: Verify standalone C++ wheel
+        run: |
+          python - <<'PY'
+          import importlib.metadata
+          import sys
+
+          from xr_source.cpp import CppDocument
+
+          source = b'#include "a.hpp"\r\nvoid f() { target(1); }\r\n'
+          assert CppDocument.parse(source).render_bytes() == source
+
+          requirements = importlib.metadata.requires("xr-source") or []
+          assert not any("tree-sitter-cpp" in item.lower() for item in requirements)
+          assert "tree_sitter" not in sys.modules
+          assert "tree_sitter_cpp" not in sys.modules
+          PY

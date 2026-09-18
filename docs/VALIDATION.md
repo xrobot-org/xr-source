@@ -2,123 +2,117 @@
 
 Date: 2026-09-18.
 
-This document records evidence for the current source-model milestone. It is not
-a claim that Tree-sitter semantically accepts every compiler extension or every
-preprocessor configuration.
+This document records evidence for the native C++ parser transition. Source
+fidelity, structural classification and compiler semantic validity are separate
+properties.
 
-## Unit and static checks
+## Current native-parser checks
 
-- pytest: 36/36 on Python 3.12.3.
-- Python 3.10.21: 36/36.
-- Python 3.14.7: 36/36.
-- mypy strict: no issues in the package sources.
-- ruff: required clean before the milestone commit.
-- package: sdist and pure-Python wheel build successfully.
-- package metadata: both artifacts pass `twine check`.
-- isolated wheel install: C++ and optional CMake frontends import and parse real
-  DevC fixtures.
+The native C++ frontend is exercised by the package test suite on Linux and
+Windows across Python 3.10, 3.12 and 3.14.
 
-## Lossless round-trip
+The formatter/diagnostic run used during the migration reported:
 
-The parser invariant is byte fidelity, independently of parser diagnostics.
+- pytest: 37/37 passed;
+- Ruff: all checks passed;
+- mypy strict: no issues in 38 source files;
+- sdist and pure-Python wheel: build successfully;
+- package metadata: sdist and wheel pass `twine check`;
+- isolated base-wheel smoke test: C++ parses without installing Tree-sitter.
 
-Full ecosystem stress test, including C, C++, headers and vendored STM32/CMSIS/
-Eigen sources:
+The normal CI workflow remains the authoritative final matrix check.
 
-- 4,420 files.
-- 153,971,079 bytes.
-- 0 round-trip failures.
-- 1,866 files contain Tree-sitter diagnostics; 83,250 diagnostics total.
+## Dependency isolation
 
-C++-family subset (`.cpp/.hpp/.cc/.cxx/.hh/.hxx`):
+The base package declares no runtime dependencies.
 
-- 1,451 files.
-- 9,461,521 bytes.
-- 0 round-trip failures.
-- 571 files contain Tree-sitter diagnostics; 2,403 diagnostics total.
+C++ specifically has:
 
-The diagnostic count is deliberately reported rather than hidden. Full-fidelity
-source representation and full grammar acceptance are separate properties.
+- no `tree-sitter-cpp` dependency;
+- no `tree-sitter` dependency;
+- no packaged C++ Tree-sitter grammar JSON or Tree-sitter C++ license payload;
+- no C++ import path through `xr_source.parser.tree_sitter`.
 
-CMake ecosystem test:
+The package CI installs the built wheel into an environment that has only the
+build/check tooling, then parses C++ and checks that no Tree-sitter module was
+loaded. It also checks wheel metadata for any accidental
+`tree-sitter-cpp` requirement.
 
-- 248 `CMakeLists.txt` / `.cmake` files.
-- 524,091 bytes.
-- 0 diagnostics.
-- 0 round-trip failures.
+CMake is intentionally separate: `xr-source[cmake]` may install
+`tree-sitter-language-pack` and its Tree-sitter runtime.
 
-## XRobot compatibility
+## Lossless round-trip contract
 
-The new typed C++ constructor view was compared against the current XRobot
-Module parser across 66 primary Module headers:
+The native parser asserts byte fidelity on every parse:
 
-- 64 headers accepted by the current XRobot parser: 64/64 constructor parameter
-  name/type/default shapes match.
-- 2 headers are already rejected by the current XRobot parser
-  (`QDU-Robomaster/Motor` and `xrobot-org/DurationStatistics`).
-- 0 regressions among the interfaces XRobot currently accepts.
+```python
+tree = CppParser().parse(source)
+assert tree.render_bytes() == source
+```
 
-Real DevC source inspection through the new API:
+Unit coverage includes CRLF, comments, preprocessor directives, raw strings,
+UTF-8 BOM, empty files and malformed/incomplete source.
 
-- `app_main.cpp`: one `app_main`, 41 `XR_REGISTER` calls, 119 variable
-  declarations classified by convenience views, three user regions, two
-  clang-format regions and two NOLINT regions.
-- `xrobot_main.hpp`: one `XRobotMain`; byte-identical round-trip.
-- Both files render byte-for-byte identical to their inputs.
+Before the native parser transition, the Tree-sitter-backed prototype was
+stress-tested on a 4,420-file / 153,971,079-byte local ecosystem corpus with
+zero round-trip failures. That historical result remains useful as the corpus
+definition and fidelity baseline, but it is **not** presented as native-parser
+evidence. The same corpus must be rerun against the native frontend before an
+equivalent native full-corpus claim is made.
 
-## Parser backend compatibility
+## Structural compatibility
 
-The default C++ backend is pinned to:
+The current tests cover the source-level interfaces required by XRobot tooling,
+including:
 
-- `tree-sitter 0.25.2`
-- `tree-sitter-cpp 0.23.4` (revision
-  `f41e1a044c8a84ea9fa8577fdd2eab92ec96de02`)
+- includes;
+- classes and access sections;
+- function and constructor views;
+- complex parameter declarators;
+- template parameters;
+- deleted/defaulted special members;
+- file- and block-scope variables;
+- call expressions and arguments;
+- modern C++ syntax categories such as lambda, requires, fold and co_await;
+- immutable edits and reparsing;
+- protected user/format/lint regions.
 
-A real STM32 source, `system_stm32f4xx.c` (26,695 bytes), reproducibly caused
-a native SIGSEGV with the combination `tree-sitter 0.26.0` +
-`tree-sitter-cpp 0.23.4`. The pinned 0.25.2 combination round-trips the same
-file exactly.
+The native parser intentionally falls back to generic lossless source nodes
+where classification would require semantic knowledge.
 
-A separate control using the C++ grammar bundled by
-`tree-sitter-language-pack 1.20.0` does not crash under runtime 0.26.0, so
-the finding is a backend-combination compatibility issue, not a claim that
-Tree-sitter 0.26.0 is universally broken.
+## CMake validation
 
-CMake uses the optional `tree-sitter-language-pack 1.20.0` grammar and is
-verified with the same pinned 0.25.2 runtime. The language-pack source lock
-identifies `uyha/tree-sitter-cmake` revision
-`ca627bb5828616b6246aafdc3c3222789e728e37` (v0.7.4); the packaged CMake
-`node-types.json` is taken from that exact revision and all node/type references
-match the runtime language schema.
+CMake continues to use the optional `tree-sitter-language-pack` backend.
+Its grammar metadata remains versioned under
+`src/xr_source/cmake/grammar/`. CMake is tested through the same immutable
+syntax/rewrite core but is not evidence for the independence of the C++
+frontend.
 
-## Grammar schemas
+## Historical XRobot compatibility evidence
 
-The package ships versioned, checksummed grammar metadata rather than a
-hand-maintained list of syntax forms:
+The earlier source-model prototype compared typed constructor views with the
+then-current XRobot Module parser across 66 primary Module headers:
 
-- C++: 407 node specifications from tree-sitter-cpp v0.23.4; 98 node kinds
-  declare named fields, 111 declare generic children, and 7 are abstract
-  subtype sets. The `expression` subtype set includes lambda, requires, fold,
-  coroutine await, call, new, binary and the other grammar-defined expression
-  forms.
-- CMake: 71 node specifications from tree-sitter-cmake v0.7.4.
+- 64 headers accepted by the XRobot parser: 64/64 constructor
+  name/type/default shapes matched;
+- 2 headers were already rejected by the XRobot parser;
+- 0 regressions among interfaces accepted by that baseline.
 
-Both frontends expose these through the same `LanguageGrammar` data model. A
-syntax node can be mapped back to its grammar contract with
-`document.grammar_spec(node)`; C++ additionally exposes grammar-driven
-`is_expression()` and `is_statement()` helpers.
+Because the C++ backend has now changed, this is historical baseline evidence.
+A new native-parser parity run should replace it before declaring corpus-level
+migration complete.
 
-## Evidence files
+## Local evidence directory
 
-The local evidence directory is:
+Earlier corpus/parity evidence is stored under:
 
 `D:/XRobotWork/ecosystem-20260915/evidence/xr-source-20260918/`
 
-Important machine-readable outputs:
+Important historical outputs include:
 
-- `cpp-roundtrip-final.json`
-- `cpp-only-roundtrip.json`
-- `cmake-roundtrip.json`
-- `xrobot-interface-compare.json`
+- `cpp-roundtrip-final.json`;
+- `cpp-only-roundtrip.json`;
+- `cmake-roundtrip.json`;
+- `xrobot-interface-compare.json`.
 
-The package itself does not depend on those evidence files at runtime.
+These files are validation artifacts and are not runtime dependencies.
