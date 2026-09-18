@@ -6,7 +6,7 @@ on:
       - feat/source-model-20260918
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   format-and-diagnose:
@@ -20,14 +20,25 @@ jobs:
         run: python -m pip install -e ".[dev]"
       - name: Format native parser files
         run: |
-          python -m ruff format             src/xr_source/cpp/lexer.py             src/xr_source/cpp/_ranges.py             src/xr_source/cpp/_declarator.py             src/xr_source/cpp/_expression.py             src/xr_source/cpp/_declaration.py             src/xr_source/cpp/parser.py             src/xr_source/cpp/grammar/__init__.py             tests/test_cpp_schema.py             tests/test_cpp_grammar_schema.py
-          python -m ruff check --fix             src/xr_source/cpp/lexer.py             src/xr_source/cpp/_ranges.py             src/xr_source/cpp/_declarator.py             src/xr_source/cpp/_expression.py             src/xr_source/cpp/_declaration.py             src/xr_source/cpp/parser.py             src/xr_source/cpp/grammar/__init__.py             tests/test_cpp_schema.py             tests/test_cpp_grammar_schema.py || true
+          python -m ruff format src/xr_source/cpp/lexer.py src/xr_source/cpp/_ranges.py src/xr_source/cpp/_declarator.py src/xr_source/cpp/_expression.py src/xr_source/cpp/_declaration.py src/xr_source/cpp/parser.py src/xr_source/cpp/grammar/__init__.py tests/test_cpp_schema.py tests/test_cpp_grammar_schema.py
+          python -m ruff check --fix src/xr_source/cpp/lexer.py src/xr_source/cpp/_ranges.py src/xr_source/cpp/_declarator.py src/xr_source/cpp/_expression.py src/xr_source/cpp/_declaration.py src/xr_source/cpp/parser.py src/xr_source/cpp/grammar/__init__.py tests/test_cpp_schema.py tests/test_cpp_grammar_schema.py || true
+      - name: Commit formatter output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/xr_source/cpp/lexer.py src/xr_source/cpp/_ranges.py src/xr_source/cpp/_declarator.py src/xr_source/cpp/_expression.py src/xr_source/cpp/_declaration.py src/xr_source/cpp/parser.py src/xr_source/cpp/grammar/__init__.py tests/test_cpp_schema.py tests/test_cpp_grammar_schema.py
+          if ! git diff --cached --quiet; then
+            git commit -m "Format native C++ parser"
+            git push
+          fi
       - name: Collect diagnostics
+        if: always()
         run: |
           python -m ruff check . > native-parser-ruff.txt 2>&1 || true
           python -m mypy --strict src/xr_source > native-parser-mypy.txt 2>&1 || true
           python -m pytest > native-parser-pytest.txt 2>&1 || true
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: native-parser-formatted
           if-no-files-found: error
