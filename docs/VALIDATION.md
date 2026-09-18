@@ -11,9 +11,9 @@ properties.
 The native C++ frontend is exercised by the package test suite on Linux and
 Windows across Python 3.10, 3.12 and 3.14.
 
-The formatter/diagnostic run used during the migration reported:
+The current native-parser validation reports:
 
-- pytest: 37/37 passed;
+- pytest: 38/38 passed;
 - Ruff: all checks passed;
 - mypy strict: no issues in 38 source files;
 - sdist and pure-Python wheel: build successfully;
@@ -53,12 +53,31 @@ assert tree.render_bytes() == source
 Unit coverage includes CRLF, comments, preprocessor directives, raw strings,
 UTF-8 BOM, empty files and malformed/incomplete source.
 
-Before the native parser transition, the Tree-sitter-backed prototype was
-stress-tested on a 4,420-file / 153,971,079-byte local ecosystem corpus with
-zero round-trip failures. That historical result remains useful as the corpus
-definition and fidelity baseline, but it is **not** presented as native-parser
-evidence. The same corpus must be rerun against the native frontend before an
-equivalent native full-corpus claim is made.
+A native public-corpus run at commit
+`0098d1ac34dc400050dd7ccafd27a9cce852031c` cloned the current public
+`xrobot-org/XRobot`, `xrobot-org/libxr`, `xrobot-org/BlinkLED` and
+`xrobot-org/DurationStatistics` repositories and parsed their C/C++ source
+set with the base package only:
+
+- 1,850 files;
+- 16,624,085 bytes;
+- 0 round-trip failures;
+- 4 files with parser diagnostics;
+- 7 diagnostics total;
+- 73.908 s elapsed on the GitHub Actions Ubuntu runner.
+
+The corpus exposed an expression-replacement span bug in the first native
+implementation: 123 files initially lost trivia immediately before delimiters.
+The lexer itself remained byte-identical. The parser was changed so every
+expression replacement uses the same trimmed span represented by the expression
+node, after which the same 1,850-file corpus completed with zero failures.
+
+Before the native parser transition, the Tree-sitter-backed prototype was also
+stress-tested on a larger 4,420-file / 153,971,079-byte local ecosystem corpus
+with zero round-trip failures. That older run remains the larger historical
+baseline, but it is **not** relabeled as native-parser evidence. The larger local
+corpus can still be rerun later if an equivalent full-local-corpus native claim
+is needed.
 
 ## Structural compatibility
 
