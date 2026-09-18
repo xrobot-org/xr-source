@@ -192,13 +192,25 @@ class _Lexer:
                 result.append(self._emit("raw", start, self.index, trivia=True))
                 continue
 
+            if char in "\r\n":
+                # 行结束必须独立成 lexeme。预处理指令需要拥有“本行”的换行，
+                # 但不能把下一空行一起吞掉；CRLF 作为一个逻辑换行整体保留。
+                if char == "\r" and self.index + 1 < self.length and self.text[self.index + 1] == "\n":
+                    self.index += 2
+                else:
+                    self.index += 1
+                result.append(self._emit("newline", start, self.index, trivia=True))
+                continue
+
             if char.isspace():
                 self.index += 1
-                while self.index < self.length and self.text[self.index].isspace():
+                while (
+                    self.index < self.length
+                    and self.text[self.index].isspace()
+                    and self.text[self.index] not in "\r\n"
+                ):
                     self.index += 1
-                fragment = self.text[start : self.index]
-                kind = "newline" if "\n" in fragment or "\r" in fragment else "whitespace"
-                result.append(self._emit(kind, start, self.index, trivia=True))
+                result.append(self._emit("whitespace", start, self.index, trivia=True))
                 continue
 
             if self.text.startswith("//", start):

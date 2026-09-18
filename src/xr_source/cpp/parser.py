@@ -173,9 +173,10 @@ class _StructuralParser(
         line_end = start + 1
         while line_end < end:
             item = self.lexemes[line_end]
-            # 预处理节点不吞掉行尾；换行作为外层 trivia 保留。这样插入另一个
-            # directive 时不会把“旧节点自带换行 + 原换行 trivia”叠成空行。
-            if item.trivia and ("\n" in item.text or "\r" in item.text):
+            if item.kind == "newline":
+                # 与既有 API 保持一致：directive 节点拥有本行换行。
+                # lexer 已保证这里只包含一个 CR/LF/CRLF，不会吞掉下一空行。
+                line_end += 1
                 break
             line_end += 1
 
