@@ -74,7 +74,7 @@ class GreenChild:
 # 因而未变化的 green 子树可以安全地在多个不可变快照之间复用。
 @dataclass(frozen=True)
 class GreenNode(_GreenMixin):
-    """表示不可变且与绝对位置无关的语法节点；不保存 parent/offset，因此未修改子树可以安全跨不可变快照复用。"""
+    """表示不可变且与绝对位置无关的语法节点。\n\n    节点不保存 parent/offset，因此未修改子树可以安全跨不可变快照复用。\n    """
     kind: str
     children: tuple[GreenChild, ...]
     named: bool = True

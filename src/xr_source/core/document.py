@@ -30,7 +30,7 @@ DocumentT = TypeVar("DocumentT", bound="SyntaxDocument")
 
 
 class SyntaxDocument:
-    """表示某一语言的不可变文档快照；底层 SyntaxTree 编辑保留 green 共享，高层文档编辑会重新解析以刷新 field、诊断和语言不变量。"""
+    """表示某一语言的不可变文档快照。\n\n    底层 SyntaxTree 编辑保留 green 共享；高层文档编辑会重新解析，\n    以刷新 field、诊断和语言不变量。\n    """
     __slots__ = ("tree", "_parser")
 
     language: str

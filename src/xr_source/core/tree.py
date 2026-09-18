@@ -13,7 +13,7 @@ from .text import encode_source
 
 @dataclass(frozen=True, slots=True)
 class SyntaxTree:
-    """保存某一语言不可变语法快照的 green root、诊断和源码身份，并提供不重新调用 parser 的底层持久化编辑。"""
+    """保存某一语言不可变语法快照的核心状态。\n\n    快照包含 green root、诊断和源码身份，并提供不重新调用 parser 的\n    底层持久化编辑。\n    """
     language: str
     green_root: GreenNode
     diagnostics: tuple[Diagnostic, ...] = ()

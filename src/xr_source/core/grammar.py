@@ -1,4 +1,4 @@
-"""定义语言无关的结构 grammar 合同；既支持原生 C++ grammar，也支持从 node-types 元数据加载其他语言。"""
+"""定义语言无关的结构 grammar 合同。\n\n既支持原生 C++ grammar，也支持从 node-types 元数据加载其他语言。\n"""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from typing import Any
 
 @dataclass(frozen=True, slots=True)
 class GrammarTypeRef:
-    """用 kind 拼写和 named/anonymous 属性唯一标识一种 grammar 类型；named 位属于类型身份的一部分。"""
+    """用 kind 和 named/anonymous 属性唯一标识一种 grammar 类型。\n\n    named 位属于类型身份的一部分。\n    """
     kind: str
     named: bool
 
@@ -31,7 +31,7 @@ class GrammarSlot:
 
 @dataclass(frozen=True)
 class GrammarNodeSpec:
-    """描述一种语法 kind 的 grammar 元数据，包括字段、children、root 和 subtype 关系；它不是实际解析得到的源码节点。"""
+    """描述一种语法 kind 的 grammar 元数据。\n\n    包含字段、children、root 和 subtype 关系；它不是实际解析得到的源码节点。\n    """
     kind: str
     named: bool
     root: bool = False
@@ -51,7 +51,7 @@ class GrammarNodeSpec:
 
 @dataclass(frozen=True)
 class LanguageGrammar:
-    """表示与具体 parser 运行时对象解耦、可版本追踪的语言结构 grammar，并保留来源 revision 与校验信息。"""
+    """表示与具体 parser 运行时对象解耦的语言结构 grammar。\n\n    该对象可版本追踪，并保留来源 revision 与校验信息。\n    """
     language: str
     version: str
     source_revision: str

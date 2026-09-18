@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 class SyntaxElement:
-    """把 green 元素绑定到一个 SyntaxTree 快照，并补充父节点、索引、field 与字节偏移；red 元素的路径和位置只对所属快照有效。"""
+    """把 green 元素绑定到一个 SyntaxTree 快照。\n\n    视图补充父节点、索引、field 与字节偏移；red 元素的路径和位置\n    只对所属快照有效。\n    """
     __slots__ = ("_tree", "_green", "_parent", "_index", "_offset", "_field")
 
     def __init__(
