@@ -25,10 +25,57 @@ jobs:
           git clone --depth 1 https://github.com/xrobot-org/libxr.git corpus/libxr
           git clone --depth 1 https://github.com/xrobot-org/BlinkLED.git corpus/BlinkLED
           git clone --depth 1 https://github.com/xrobot-org/DurationStatistics.git corpus/DurationStatistics
+      - name: Diagnose native parser mismatches
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          from xr_source.core import SyntaxTree, decode_source
+          from xr_source.cpp.lexer import _Lexer
+          from xr_source.cpp.parser import _StructuralParser
+
+          samples = [
+              Path("corpus/libxr/driver/ch/ch32_pwm.cpp"),
+              Path("corpus/libxr/driver/esp/esp_uart.cpp"),
+              Path("corpus/libxr/driver/mspm0/mspm0_i2c.hpp"),
+              Path("corpus/libxr/lib/Eigen/Eigen/src/Core/Array.h"),
+          ]
+
+          for path in samples:
+              data = path.read_bytes()
+              text = decode_source(data)
+              lexemes, diagnostics = _Lexer(text).scan()
+              lexer_bytes = "".join(item.text for item in lexemes).encode(
+                  "utf-8", errors="surrogateescape"
+              )
+              parser = _StructuralParser(lexemes, diagnostics)
+              root = parser.parse_translation_unit()
+              rendered = SyntaxTree("cpp", root).render_bytes()
+
+              def first_diff(left: bytes, right: bytes) -> int:
+                  limit = min(len(left), len(right))
+                  for index in range(limit):
+                      if left[index] != right[index]:
+                          return index
+                  return limit
+
+              print("FILE", path)
+              print("  source", len(data), "lexer", len(lexer_bytes), "tree", len(rendered))
+              print("  lexer_equal", lexer_bytes == data, "tree_equal", rendered == data)
+              if rendered != data:
+                  index = first_diff(data, rendered)
+                  lo = max(0, index - 120)
+                  hi_source = min(len(data), index + 120)
+                  hi_render = min(len(rendered), index + 120)
+                  print("  first_diff", index)
+                  print("  SOURCE", repr(data[lo:hi_source]))
+                  print("  RENDER", repr(rendered[lo:hi_render]))
+          PY
       - name: Native C++ round-trip
         run: python tools/roundtrip_ecosystem.py corpus --json native-public-corpus.json
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: native-public-corpus
           path: native-public-corpus.json
-          if-no-files-found: error
+          if-no-files-found: ignore
