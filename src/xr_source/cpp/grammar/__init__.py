@@ -245,7 +245,7 @@ _NODES = (
     _node(
         "template_declaration",
         fields=(("parameters", _slot("template_parameter_list", required=True)),),
-        children=_slot(*_DECLARATION_KINDC, "multiple=True",
+        children=_slot(*_DECLARATION_KINDS, multiple=True),
     ),
     _node("template_parameter_list", children=_slot("type_parameter_declaration", "optional_type_parameter_declaration", "parameter_declaration", "optional_parameter_declaration", "variadic_parameter_declaration", multiple=True)),
     _node("type_parameter_declaration", fields=(("declarator", _slot("type_identifier", "identifier")),)),
