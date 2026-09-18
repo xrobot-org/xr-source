@@ -166,7 +166,7 @@ class _RangeMixin:
                 return index
         return None
 
-    def _match_angle(self, opening: int, end: int | None:
+    def _match_angle(self, opening: int, end: int) -> int | None:
         """为 template 参数列表区配角括号，并备理建件 `>>`。"""
         depth = 0
         for index in self._significant(opening, end):
