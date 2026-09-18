@@ -1,10 +1,13 @@
+import sys
+
 from xr_source.cpp import CppDocument, CppParser
 
 
 def test_schema_exposes_modern_cpp_syntax_kinds() -> None:
+    """Native parser 的 runtime schema 必须覆盖当前公共查询所需的现代 C++ kind。"""
     parser = CppParser()
     kinds = parser.schema.kind_names
-    assert len(parser.schema.kinds) > 500
+    assert len(parser.schema.kinds) >= 50
     assert {
         "lambda_expression",
         "requires_expression",
@@ -16,6 +19,7 @@ def test_schema_exposes_modern_cpp_syntax_kinds() -> None:
 
 
 def test_complex_cpp_syntax_remains_structured_and_lossless() -> None:
+    """模板、concept、requires、lambda 和 fold expression 必须保持结构化且无损。"""
     source = b"""template <typename T>
 concept Addable = requires(T t) { t + t; };
 
@@ -33,6 +37,13 @@ auto fold(T... xs) {
 
 
 def test_utf8_bom_is_source_trivia_not_lost() -> None:
+    """BOM 是源码字节的一部分，不能在 parser 层消失。"""
     source = b'\xef\xbb\xbf#pragma once\r\n'
     document = CppDocument.parse(source)
     assert document.render_bytes() == source
+
+
+def test_cpp_frontend_has_no_tree_sitter_cpp_runtime_dependency() -> None:
+    """仅使用 C++ frontend 时不得导入 tree-sitter-cpp。"""
+    CppDocument.parse("int value = 1;")
+    assert "tree_sitter_cpp" not in sys.modules

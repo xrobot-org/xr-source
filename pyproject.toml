@@ -23,10 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
 ]
-dependencies = [
-    "tree-sitter==0.25.2",
-    "tree-sitter-cpp==0.23.4",
-]
+dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/xrobot-org/xr-source"
@@ -51,8 +48,6 @@ where = ["src"]
 [tool.setuptools.package-data]
 xr_source = [
     "py.typed",
-    "cpp/grammar/*.json",
-    "cpp/grammar/LICENSE.*",
     "cmake/grammar/*.json",
     "cmake/grammar/LICENSE.*",
 ]

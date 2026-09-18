@@ -52,7 +52,7 @@ the compiler or in an optional semantic provider.
 | Package | Responsibility |
 | --- | --- |
 | `xr_source.core` | Immutable syntax tree, source spans, rewrites, grammar metadata |
-| `xr_source.parser` | Parser backend adapters; Tree-sitter stays behind this boundary |
+| `xr_source.parser` | Optional parser backend adapters used by non-C++ frontends |
 | `xr_source.format` | Width-aware layout IR used by generated source |
 | `xr_source.cpp` | C++ parser, queries, typed views, regions, factories, builders |
 | `xr_source.cmake` | CMake parser, command views, factories, builders |
@@ -219,8 +219,9 @@ declaration = factory.variable(
 
 ## C++ grammar access
 
-The complete structural grammar is packaged as versioned data rather than as a
-large handwritten Python class hierarchy.
+The C++ structural grammar is maintained by `xr-source` itself and exposed as
+versioned data. It is independent of `tree-sitter-cpp` and does not require a
+third-party C++ parser at runtime.
 
 ```python
 from xr_source.cpp import CPP_GRAMMAR
@@ -320,23 +321,23 @@ It is intentionally not responsible for:
 
 Those belong to the compiler or to the consuming application.
 
-## Parser versions
+## Parser backends
 
-The validated default C++ backend is currently pinned to:
+The default C++ frontend is self-contained:
 
 ```text
-tree-sitter 0.25.2
-tree-sitter-cpp 0.23.4
+xr-source native C++ source parser
+grammar: xr-cpp-0.1
+runtime dependency on tree-sitter-cpp: none
 ```
 
-The packaged C++ grammar contract corresponds to upstream revision
-`f41e1a044c8a84ea9fa8577fdd2eab92ec96de02`.
+It performs lossless source parsing and the source-level structural queries needed
+by XRobot tooling. It deliberately does not attempt compiler semantics such as
+name lookup, overload resolution or template instantiation.
 
-CMake uses `tree-sitter-language-pack 1.20.0`, whose pinned CMake grammar is
-upstream revision `ca627bb5828616b6246aafdc3c3222789e728e37`.
-
-The exact compatibility reasoning and newer C++ grammar candidate are documented
-in `docs/ARCHITECTURE.md` and `docs/VALIDATION.md`.
+CMake is a separate optional frontend. Installing `xr-source[cmake]` currently
+uses `tree-sitter-language-pack 1.20.0` for CMake parsing; this optional backend
+does not participate in the C++ frontend.
 
 ## Validation
 
@@ -383,5 +384,5 @@ If you are reviewing the implementation rather than using the package, start wit
 docs/REVIEW_GUIDE.md
 ```
 
-It reduces the runtime design to eight files and explains which generated grammar,
-test, and packaging files can be skipped on the first pass.
+It gives the shortest review path through the immutable syntax core, the native
+C++ lexer/parser, typed views, builders, and optional CMake backend.
