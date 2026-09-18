@@ -24,11 +24,12 @@ jobs:
           tar -xzf /tmp/xr-changes.tar.gz
           python tools/check_chinese_docs.py
           python -m compileall -q src tests tools
-      - name: 清理临时文件并提交
+      - name: 提交源码和文档
         run: |
+          # GitHub Actions bot 没有 workflows 权限，因此恢复所有 workflow 文件；
+          # test.yml 的永久审计和临时 workflow 清理由后续 GitHub API 提交完成。
+          git restore --source=HEAD --staged --worktree .github/workflows
           git rm -r .github/doc-transfer
-          git rm .github/workflows/apply-chinese-docs.yml
-          git rm .github/workflows/chinese-doc-audit.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
