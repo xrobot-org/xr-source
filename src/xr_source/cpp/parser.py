@@ -173,8 +173,9 @@ class _StructuralParser(
         line_end = start + 1
         while line_end < end:
             item = self.lexemes[line_end]
+            # 预处理节点不吞掉行尾；换行作为外层 trivia 保留。这样插入另一个
+            # directive 时不会把“旧节点自带换行 + 原换行 trivia”叠成空行。
             if item.trivia and ("\n" in item.text or "\r" in item.text):
-                line_end += 1
                 break
             line_end += 1
 

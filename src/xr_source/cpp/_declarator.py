@@ -179,7 +179,12 @@ class _DeclaratorMixin:
             if after is not None and self.lexemes[after].text == "::":
                 continue
             candidates.append(index)
-        if len(candidates) < 2 and significant and self.lexemes[significant[0]].text not in _TYPE_WORDS:
+        if (
+            len(candidates) < 2
+            and significant
+            and self.lexemes[significant[0]].text
+            not in (_TYPE_WORDS | _STORAGE | _QUALIFIERS)
+        ):
             return None
         for index in reversed(candidates):
             after = self._next_significant(index + 1, search_end)
