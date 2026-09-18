@@ -1,3 +1,4 @@
+"""验证 C++ 结构化编辑会重新解析，同时保持未修改源码和保护区域不变。"""
 from xr_source.cpp import CppDocument, CppFactory
 
 SOURCE = """#include "a.hpp"
@@ -12,6 +13,7 @@ void f() {
 
 
 def test_structured_edit_reparses_and_preserves_unrelated_source() -> None:
+    """验证结构化编辑会重新解析文档，同时完整保留无关源码。"""
     factory = CppFactory()
     document = CppDocument.parse(SOURCE)
 
@@ -29,6 +31,7 @@ def test_structured_edit_reparses_and_preserves_unrelated_source() -> None:
 
 
 def test_user_region_body_can_be_replaced_without_touching_markers() -> None:
+    """验证替换 User Code body 时不会修改成对区域标记。"""
     document = CppDocument.parse(SOURCE)
     region = document.user_regions()[0]
     changed = document.replace_region_body(

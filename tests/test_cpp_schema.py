@@ -1,3 +1,4 @@
+"""验证原生 C++ parser 的 runtime schema 和现代 C++ 结构分类。"""
 import sys
 
 from xr_source.cpp import CppDocument, CppParser

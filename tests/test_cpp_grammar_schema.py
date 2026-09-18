@@ -1,3 +1,4 @@
+"""验证原生 C++ grammar 合同、字段约束与 subtype 分类。"""
 from xr_source.cpp import CPP_GRAMMAR, CppParser
 
 

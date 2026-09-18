@@ -1,3 +1,4 @@
+"""验证 C++ 常用结构查询和 User Code 区域识别。"""
 from xr_source.cpp import CppDocument
 
 SOURCE = """
@@ -19,6 +20,7 @@ extern "C" void app_main(void) {
 
 
 def test_common_queries() -> None:
+    """验证 CppDocument 的常用函数、调用和声明查询。"""
     document = CppDocument.parse(SOURCE)
     assert len(document.includes()) == 1
     assert len(document.classes("Device")) == 1
@@ -28,6 +30,7 @@ def test_common_queries() -> None:
 
 
 def test_user_region() -> None:
+    """验证 User Code 区域的名称、body 和边界识别。"""
     document = CppDocument.parse(SOURCE)
     regions = document.user_regions()
     assert len(regions) == 1

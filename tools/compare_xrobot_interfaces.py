@@ -1,3 +1,4 @@
+"""比较 xr-source 与旧 XRobot ModuleParser 对模块构造函数接口的解析结果。"""
 from __future__ import annotations
 
 import argparse
@@ -11,6 +12,7 @@ from xr_source.cpp import CppDocument
 
 
 def normalized(value: str | None) -> str | None:
+    """规范化类型/默认值文本中的空白和常见标点间距，便于接口结果比较。"""
     if value is None:
         return None
     text = re.sub(r"\s+", " ", value.strip())
@@ -20,6 +22,7 @@ def normalized(value: str | None) -> str | None:
 
 
 def main() -> None:
+    """解析命令行参数并执行当前工具的完整验证流程。"""
     parser = argparse.ArgumentParser()
     parser.add_argument("modules", type=Path)
     parser.add_argument("--json", type=Path)

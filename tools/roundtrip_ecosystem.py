@@ -1,3 +1,4 @@
+"""批量扫描 C/C++/头文件并统计原生 C++ parser 的无损 round-trip 和诊断结果。"""
 from __future__ import annotations
 
 import argparse
@@ -29,6 +30,7 @@ def source_files(
     roots: Iterable[Path],
     suffixes: set[str] = SUFFIXES,
 ) -> Iterable[Path]:
+    """递归枚举需要参与 round-trip 验证的源码文件，并跳过缓存和构建目录。"""
     for root in roots:
         if root.is_file():
             if root.suffix.lower() in suffixes:
@@ -44,6 +46,7 @@ def source_files(
 
 
 def main() -> None:
+    """解析命令行参数并执行当前工具的完整验证流程。"""
     arguments = argparse.ArgumentParser()
     arguments.add_argument("roots", nargs="+", type=Path)
     arguments.add_argument("--limit", type=int)

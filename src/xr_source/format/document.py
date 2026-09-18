@@ -1,4 +1,4 @@
-"""Small Prettier-style layout IR for deterministic line breaking and indentation."""
+"""实现类似 Prettier 的小型布局 IR，用于新生成源码的确定性换行和缩进。"""
 
 from __future__ import annotations
 
@@ -7,62 +7,63 @@ from dataclasses import dataclass
 from enum import Enum
 
 # ---------------------------------------------------------------------------
-# Layout document IR
+# 布局文档 IR
 # ---------------------------------------------------------------------------
 
 class Doc:
-    """Base type for the language-neutral layout document IR."""
+    """所有语言无关布局文档节点的基类。"""
     pass
 
 
 @dataclass(frozen=True, slots=True)
 class Text(Doc):
-    """Literal output text that never participates in line breaking."""
+    """表示不会参与自动换行决策的字面输出文本。"""
     value: str
 
 
 @dataclass(frozen=True, slots=True)
 class Line(Doc):
-    """Potential line break. In flat mode it emits flat; in break mode it emits a newline."""
+    """表示可平铺为空格/空串、也可在 break 模式下输出换行的布局节点。"""
     flat: str = " "
     hard: bool = False
 
 
 @dataclass(frozen=True, slots=True)
 class Concat(Doc):
-    """Ordered concatenation of layout documents."""
+    """表示多个布局文档按顺序拼接。"""
     parts: tuple[Doc, ...]
 
 
 @dataclass(frozen=True, slots=True)
 class Indent(Doc):
-    """Increase indentation for line breaks inside content."""
+    """表示 content 内发生换行时需要增加的缩进层级。"""
     content: Doc
     levels: int = 1
 
 
 @dataclass(frozen=True, slots=True)
 class Group(Doc):
-    """Prefer a flat rendering when the complete group fits the remaining width."""
+    """表示优先尝试单行平铺、宽度不足时整体进入 break 模式的布局组。"""
     content: Doc
 
 
 @dataclass(frozen=True, slots=True)
 class IfBreak(Doc):
-    """Select different layout content depending on whether the enclosing group breaks."""
+    """根据外层 group 是否换行选择不同的布局内容。"""
     broken: Doc
     flat: Doc
 
 
-# Rendering alternates between FLAT and BREAK modes. Only Group decides which
-# mode to use; Line nodes simply obey that decision.
+# 渲染过程在 FLAT/BREAK 两种模式间切换。只有 Group 能决定模式；
+# Line 节点只服从外层已经选定的模式。
 class _Mode(Enum):
+    """表示布局渲染当前采用 FLAT 或 BREAK 两种模式之一。"""
     FLAT = 1
     BREAK = 2
 
 
 def text(value: str) -> Doc:
-    """Wrap literal text as a layout document."""
+    """把字面字符串包装成 Text 布局节点。"""
     return Text(value)
 
 
@@ -72,7 +73,7 @@ hardline = Line("", True)
 
 
 def concat(*parts: Doc | str) -> Doc:
-    """Concatenate strings/documents without deciding line breaks."""
+    """顺序拼接字符串和布局节点，但不立即决定换行。"""
     docs = tuple(Text(part) if isinstance(part, str) else part for part in parts)
     if len(docs) == 1:
         return docs[0]
@@ -80,7 +81,7 @@ def concat(*parts: Doc | str) -> Doc:
 
 
 def verbatim(value: str) -> Doc:
-    """Represent existing multi-line text without normalizing its contents."""
+    """把已有多行文本转换为布局节点，同时保持原有行内容。"""
     lines = value.splitlines()
     if not lines:
         return Text("")
@@ -95,7 +96,7 @@ def verbatim(value: str) -> Doc:
 
 
 def join(separator: Doc | str, docs: Iterable[Doc | str]) -> Doc:
-    """Join a sequence of documents with one layout separator."""
+    """用一个布局分隔符连接一组文档节点。"""
     sep = Text(separator) if isinstance(separator, str) else separator
     result: list[Doc] = []
     for item in docs:
@@ -105,10 +106,10 @@ def join(separator: Doc | str, docs: Iterable[Doc | str]) -> Doc:
     return Concat(tuple(result))
 
 
-# Resolve layout decisions without touching parsed source trivia. Parsed source
-# uses normal render(); this formatter is for newly generated source.
+# 布局计算绝不修改已解析源码的 trivia。已有源码直接走普通 render()；
+# 这里的 formatter 只负责新生成源码的排版。
 def render(doc: Doc, *, width: int = 88, indent: str = "  ") -> str:
-    """Resolve groups/line breaks into final text for the requested width and indent unit."""
+    """按目标宽度和缩进单位解析 group/line 决策并输出最终文本。"""
     output: list[str] = []
     column = 0
     stack: list[tuple[int, _Mode, Doc]] = [(0, _Mode.BREAK, doc)]
@@ -139,8 +140,8 @@ def render(doc: Doc, *, width: int = 88, indent: str = "  ") -> str:
                 (level, mode, current.flat if mode is _Mode.FLAT else current.broken)
             )
         elif isinstance(current, Group):
-            # A group is the only place that chooses between flat and broken
-            # layout. Nested Line nodes merely obey the selected mode.
+            # Group 是唯一能在平铺与换行之间做选择的节点；内部 Line 只执行
+            # 已经选定的模式，避免局部节点各自做宽度决策。
             trial = (level, _Mode.FLAT, current.content)
             selected = (
                 _Mode.FLAT
@@ -154,9 +155,9 @@ def render(doc: Doc, *, width: int = 88, indent: str = "  ") -> str:
 
 
 def _fits(remaining: int, stack: list[tuple[int, _Mode, Doc]]) -> bool:
-    # Speculatively walk the pending document in flat mode. Encountering a real
-    # line break means the current group may stop measuring: later text starts on
-    # a fresh line and therefore cannot make this line overflow.
+    # 以 FLAT 模式试走待处理文档来估算当前行是否容得下。遇到真实换行后
+    # 可以停止测量：后续文本会从新行开始，不再影响当前行宽。
+    """在不真正输出文本的情况下试算待处理文档能否放入当前剩余行宽。"""
     work = list(stack)
     while remaining >= 0 and work:
         level, mode, current = work.pop(0)

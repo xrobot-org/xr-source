@@ -13,7 +13,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 _CHINESE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
-_SKIP_PARTS = {".git", ".mypy_cache", ".pytest_cache", ".ruff_cache", "__pycache__", "build", "dist"}
+_SKIP_PARTS = {
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+    "build",
+    "dist",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,7 +67,12 @@ class _Visitor(ast.NodeVisitor):
         doc = ast.get_docstring(node, clean=False)
         if not _has_chinese(doc):
             self.missing.append(
-                MissingDoc(self.path, getattr(node, "lineno", 1), kind, _qualified_name(self.stack, name))
+                MissingDoc(
+                    self.path,
+                    getattr(node, "lineno", 1),
+                    kind,
+                    _qualified_name(self.stack, name),
+                )
             )
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:

@@ -1,4 +1,4 @@
-"""Read-only visitor hooks for walking red syntax views."""
+"""定义面向 red 语法视图的只读深度优先访问器。"""
 
 from __future__ import annotations
 
@@ -6,9 +6,9 @@ from .red import SyntaxElement, SyntaxNode, SyntaxToken, SyntaxTrivia
 
 
 class SyntaxVisitor:
-    """Read-only depth-first visitor over red syntax views."""
+    """按源码顺序深度优先遍历 red 语法元素的只读访问器。"""
     def visit(self, element: SyntaxElement) -> None:
-        """Dispatch to node/token/trivia hooks while preserving source traversal order."""
+        """按源码顺序分派 node、token 和 trivia，并递归遍历 node children。"""
         if isinstance(element, SyntaxNode):
             if self.visit_node(element):
                 for child in element.children:
@@ -22,17 +22,17 @@ class SyntaxVisitor:
             raise TypeError(type(element))
 
     def visit_node(self, node: SyntaxNode) -> bool:
-        """Handle one syntax node."""
+        """在进入一个 SyntaxNode 时调用；默认不做额外处理。"""
         return True
 
     def leave_node(self, node: SyntaxNode) -> None:
-        """Handle completion of a syntax-node traversal."""
+        """在一个 SyntaxNode 的 children 遍历结束后调用。"""
         pass
 
     def visit_token(self, token: SyntaxToken) -> None:
-        """Handle one syntax token."""
+        """访问一个 SyntaxToken；默认不做额外处理。"""
         pass
 
     def visit_trivia(self, trivia: SyntaxTrivia) -> None:
-        """Handle one preserved trivia element."""
+        """访问一个 SyntaxTrivia；默认不做额外处理。"""
         pass

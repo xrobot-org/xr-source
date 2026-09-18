@@ -1,4 +1,4 @@
-"""Language-neutral document facade for querying and safely editing syntax trees."""
+"""定义语言无关的 SyntaxDocument 外观，统一查询、不可变编辑和编辑后的重新解析。"""
 
 from __future__ import annotations
 
@@ -11,18 +11,18 @@ from .red import SyntaxElement, SyntaxNode, SyntaxToken
 from .tree import SyntaxTree
 
 # ---------------------------------------------------------------------------
-# Language-neutral document facade
+# 语言无关的文档外观
 # ---------------------------------------------------------------------------
 
 class SyntaxParserProtocol(Protocol):
-    """Minimal parser contract required by SyntaxDocument."""
+    """规定 SyntaxDocument 所需的最小解析器接口。"""
     def parse(
         self,
         source: str | bytes,
         *,
         source_name: str | None = None,
     ) -> SyntaxTree:
-        """Parse text or bytes into one immutable syntax-tree snapshot."""
+        """把源码文本或字节解析为一个不可变 SyntaxTree 快照。"""
         ...
 
 
@@ -30,12 +30,7 @@ DocumentT = TypeVar("DocumentT", bound="SyntaxDocument")
 
 
 class SyntaxDocument:
-    """Language-neutral immutable document facade over one SyntaxTree snapshot.
-
-    Low-level SyntaxTree edits preserve green sharing. High-level document edits
-    render and reparse the changed bytes so parser-owned field labels, diagnostics
-    and language invariants cannot become stale.
-    """
+    """表示某一语言的不可变文档快照；底层 SyntaxTree 编辑保留 green 共享，高层文档编辑会重新解析以刷新 field、诊断和语言不变量。"""
     __slots__ = ("tree", "_parser")
 
     language: str
@@ -46,6 +41,7 @@ class SyntaxDocument:
         tree: SyntaxTree,
         parser: SyntaxParserProtocol,
     ) -> None:
+        """绑定语法树、解析器和可选 grammar，形成一个不可变文档快照。"""
         if tree.language != self.language:
             raise ValueError(
                 f"expected {self.language!r} syntax tree, got {tree.language!r}"
@@ -55,42 +51,41 @@ class SyntaxDocument:
 
     @property
     def root(self) -> SyntaxNode:
-        """Return the red root view for this document snapshot."""
+        """返回当前文档快照的 red 根节点。"""
         return self.tree.root
 
     @property
     def diagnostics(self) -> tuple[Diagnostic, ...]:
-        """Return parser diagnostics captured for this immutable snapshot."""
+        """返回当前不可变快照在解析时产生的诊断。"""
         return self.tree.diagnostics
 
     def render(self) -> str:
-        """Render represented source text without applying formatting rules."""
+        """按语法树中保存的源码内容原样渲染文本，不执行格式化。"""
         return self.tree.render()
 
     def render_bytes(self) -> bytes:
-        """Render represented source bytes while preserving surrogate-escaped input."""
+        """按原始编码规则渲染源码字节，并保留 surrogateescape 字节。"""
         return self.tree.render_bytes()
 
     def grammar_spec(self, element: SyntaxElement) -> GrammarNodeSpec | None:
-        """Map a parsed node/token back to its versioned grammar contract when available."""
+        """把解析得到的元素映射回对应的版本化 grammar 结构合同。"""
         grammar = self.grammar
         if grammar is None or not isinstance(element, (SyntaxNode, SyntaxToken)):
             return None
         return grammar.node(element.kind, named=element.named)
 
-    # High-level edits deliberately return a fresh reparsed snapshot. The
-    # low-level tree API can preserve green sharing, but document consumers must
-    # never observe stale parser field labels or diagnostics after an edit.
+    # 高层编辑刻意返回重新解析后的新快照。底层 tree API 可以保留 green 共享，
+    # 但文档消费者在编辑后绝不能看到过期的 parser field 或诊断。
     def replace(
         self: DocumentT,
         target: SyntaxElement,
         replacement: SyntaxElement | GreenElement,
     ) -> DocumentT:
-        """Replace one element and return a new reparsed document snapshot."""
+        """替换一个语法元素，重新解析结果并返回新的文档快照。"""
         return self._reparse(self.tree.replace(target, replacement).render_bytes())
 
     def remove(self: DocumentT, target: SyntaxElement) -> DocumentT:
-        """Remove one element and return a new reparsed document snapshot."""
+        """删除一个语法元素，重新解析结果并返回新的文档快照。"""
         return self._reparse(self.tree.remove(target).render_bytes())
 
     def insert_before(
@@ -100,7 +95,7 @@ class SyntaxDocument:
         *,
         separator: str = "",
     ) -> DocumentT:
-        """Insert an element before a target and return a new reparsed document snapshot."""
+        """在目标元素前插入新元素，重新解析并返回新的文档快照。"""
         changed = self.tree.insert_before(target, element, separator=separator)
         return self._reparse(changed.render_bytes())
 
@@ -111,16 +106,16 @@ class SyntaxDocument:
         *,
         separator: str = "",
     ) -> DocumentT:
-        """Insert an element after a target and return a new reparsed document snapshot."""
+        """在目标元素后插入新元素，重新解析并返回新的文档快照。"""
         changed = self.tree.insert_after(target, element, separator=separator)
         return self._reparse(changed.render_bytes())
 
     def elements(self, kind: str) -> tuple[SyntaxElement, ...]:
-        """Return all matching syntax elements, including named tokens as well as nodes."""
+        """返回匹配 kind 的全部语法元素，包括 named token 与 node。"""
         return tuple(self.root.descendants(kind, include_self=True))
 
     def nodes(self, kind: str) -> tuple[SyntaxNode, ...]:
-        """Return only matching SyntaxNode objects."""
+        """只返回匹配 kind 的 SyntaxNode 节点。"""
         return tuple(
             element
             for element in self.elements(kind)
@@ -128,8 +123,8 @@ class SyntaxDocument:
         )
 
     def _reparse(self: DocumentT, source: bytes) -> DocumentT:
-        # Reparse at the language-document boundary so field labels, diagnostics
-        # and error-recovery structure always come from the parser that owns them.
-        # Incremental parsing can optimize this later without changing the API.
+        # 在语言文档边界统一重新解析，确保 field、诊断和错误恢复结构始终
+        # 来源于真正拥有它们的 parser。以后可在不改变 API 的前提下做增量优化。
+        """把底层编辑结果渲染为字节并重新解析，以刷新 field 和诊断。"""
         tree = self._parser.parse(source, source_name=self.tree.source_name)
         return type(self)(tree, self._parser)

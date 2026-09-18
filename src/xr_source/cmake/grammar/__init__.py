@@ -1,4 +1,4 @@
-"""Checksummed CMake grammar metadata pinned to the language-pack upstream revision."""
+"""加载并校验固定版本的 CMake grammar 元数据，再转换为统一的 LanguageGrammar 合同。"""
 
 from __future__ import annotations
 
@@ -15,10 +15,11 @@ NODE_TYPES_SHA256 = "e696c1156c9916d1d26f2e4643b6d32794dd079b0c8640aa1dabf2f33a3
 
 
 def _load() -> LanguageGrammar:
+    """读取、规范化并校验打包的 CMake grammar 元数据，然后构造 LanguageGrammar。"""
     resource = files(__package__).joinpath("node-types.json")
-    # Text mode normalizes CRLF/CR to LF before hashing. Git may materialize
-    # text files with platform-native line endings, but the grammar identity is
-    # defined by canonical UTF-8 JSON content rather than checkout policy.
+    # 文本模式先把 CRLF/CR 规范化为 LF 再计算哈希。Git 可能按平台策略
+    # 物化不同换行符，但 grammar 身份应由规范 UTF-8 JSON 内容决定，
+    # 不应受到 checkout 配置影响。
     text = resource.read_text(encoding="utf-8")
     payload = text.encode("utf-8")
     digest = hashlib.sha256(payload).hexdigest()

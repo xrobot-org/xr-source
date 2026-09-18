@@ -1,4 +1,4 @@
-"""Factories that create parser-backed C++ syntax fragments from structured inputs."""
+"""提供常见 C++ 源码片段的 parser-backed 工厂，包括 include、声明、表达式和保护区。"""
 
 from __future__ import annotations
 
@@ -19,35 +19,32 @@ from .parser import CppParser
 
 
 class CppFactory:
-    """Create validated C++ syntax fragments by parsing generated source snippets.
-
-    Factories return the same GreenElement types used by parsed files, so builders do
-    not maintain a second generated-code AST.
-    """
+    """创建常用 C++ parser-backed 片段，并通过重新解析保证结构与文本一致。"""
     def __init__(self, parser: CppParser | None = None, *, width: int = 100) -> None:
+        """初始化 C++ 片段工厂并保存布局宽度。"""
         self.parser = parser or CppParser()
         self.width = width
 
     def include(self, header: str, *, system: bool = False) -> GreenElement:
-        """Create one parser-backed include directive."""
+        """创建一条本地或 system include 指令并返回其 green 语法。"""
         delimiters = ("<", ">") if system else ('"', '"')
         source = f"#include {delimiters[0]}{header}{delimiters[1]}\n"
         return self._first(source, "preproc_include").green
 
     def comment(self, text: str, *, block: bool = False) -> GreenElement:
-        """Create one parser-backed line or block comment."""
+        """创建一条 C++ 行注释或块注释片段。"""
         source = f"/* {text} */" if block else f"// {text}"
         return self._first(source, "comment").green
 
     def directive(self, source: str) -> GreenElement:
-        """Create and validate one preprocessor directive fragment."""
+        """创建一条预处理指令，并按需要补齐行尾换行。"""
         document = CppDocument.parse(source.rstrip() + "\n", parser=self.parser)
         for child in document.root.syntax_children:
             return child.green
         raise ValueError("directive did not produce syntax")
 
     def raw(self, source: str) -> GreenElement:
-        """Create opaque generated text when no more specific factory is useful."""
+        """创建不解释内部结构的原始源码 trivia。"""
         return GreenToken("raw", source, named=True)
 
     def user_region(
@@ -55,7 +52,7 @@ class CppFactory:
         name: str,
         body: Iterable[GreenElement] = (),
     ) -> GreenElement:
-        """Create a paired User Code region containing parser-backed fragments."""
+        """创建带 User Code Begin/End 标记的保护区域。"""
         return self._region(
             "xr_user_region",
             f"/* User Code Begin {name} */",
@@ -64,7 +61,7 @@ class CppFactory:
         )
 
     def format_region(self, body: Iterable[GreenElement]) -> GreenElement:
-        """Create a paired clang-format off/on region."""
+        """创建 clang-format off/on 保护区域。"""
         return self._region(
             "xr_format_region",
             "// clang-format off",
@@ -73,7 +70,7 @@ class CppFactory:
         )
 
     def lint_region(self, body: Iterable[GreenElement]) -> GreenElement:
-        """Create a paired NOLINTBEGIN/NOLINTEND region."""
+        """创建 NOLINTBEGIN/NOLINTEND 保护区域。"""
         return self._region(
             "xr_lint_region",
             "// NOLINTBEGIN",
@@ -82,7 +79,7 @@ class CppFactory:
         )
 
     def expression(self, text: str) -> GreenElement:
-        """Parse and return one expression syntax subtree."""
+        """把表达式片段包入临时上下文解析，并返回结构化 expression green 元素。"""
         document = CppDocument.parse(
             f"auto __xr_expr() -> decltype(auto) {{ return {text}; }}",
             parser=self.parser,
@@ -93,7 +90,7 @@ class CppFactory:
         raise ValueError("expression did not produce syntax")
 
     def statement(self, text: str) -> GreenElement:
-        """Parse and return one statement syntax subtree."""
+        """把语句片段放入临时函数体解析，并返回结构化 statement green 元素。"""
         suffix = text if text.rstrip().endswith((";", "}")) else text + ";"
         document = CppDocument.parse(
             f"void __xr_stmt() {{ {suffix} }}",
@@ -105,7 +102,7 @@ class CppFactory:
         raise ValueError("statement did not produce syntax")
 
     def declaration(self, text: str) -> GreenElement:
-        """Parse and return one top-level declaration syntax subtree."""
+        """解析一条顶层声明并返回对应 green 元素。"""
         source = text if text.rstrip().endswith((";", "}")) else text + ";"
         document = CppDocument.parse(source, parser=self.parser)
         for child in document.root.named_children:
@@ -117,7 +114,7 @@ class CppFactory:
         callee: str,
         arguments: Iterable[str],
     ) -> GreenElement:
-        """Build a function-call statement using the shared layout IR for argument wrapping."""
+        """通过布局 IR 创建一条调用语句，并重新解析成结构化 green 元素。"""
         document = Group(
             concat(
                 callee,
@@ -142,7 +139,7 @@ class CppFactory:
         initializer: str | None = None,
         storage: Iterable[str] = (),
     ) -> GreenElement:
-        """Build a simple variable declaration from common structured components."""
+        """由类型、名称、存储类和初始化器创建变量声明。"""
         prefix = " ".join((*storage, cpp_type, name))
         if initializer is not None:
             prefix += f" = {initializer}"
@@ -157,7 +154,7 @@ class CppFactory:
         body: Iterable[str] = (),
         prefix: Iterable[str] = (),
     ) -> GreenElement:
-        """Build a function definition from signature components and body statements."""
+        """由返回类型、名称、参数和 body 创建完整函数定义。"""
         params = ", ".join(f"{typ} {param}" for typ, param in parameters)
         lines = list(body)
         start = " ".join((*prefix, return_type, f"{name}({params})")).strip()
@@ -175,6 +172,7 @@ class CppFactory:
         end: str,
         body: Iterable[GreenElement],
     ) -> GreenElement:
+        """按给定 begin/end 标记和 body 统一构造一对保护区域。"""
         children: list[GreenChild] = [
             GreenChild(GreenToken("comment", begin, named=True)),
             GreenChild(GreenTrivia("newline", "\n")),
@@ -186,6 +184,7 @@ class CppFactory:
         return GreenNode(kind, tuple(children), named=True)
 
     def _first(self, source: str, kind: str) -> SyntaxNode:
+        """从临时解析结果中取得指定 kind 的第一个元素，缺失时抛出错误。"""
         document = CppDocument.parse(source, parser=self.parser)
         nodes = document.nodes(kind)
         if not nodes:

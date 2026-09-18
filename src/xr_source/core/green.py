@@ -1,4 +1,4 @@
-"""Immutable position-independent syntax storage used as the persistent tree representation."""
+"""定义不可变、无绝对位置的 green 语法元素，用于持久化语法树和结构共享。"""
 
 from __future__ import annotations
 
@@ -9,41 +9,40 @@ from typing import TypeAlias
 from .text import encode_source
 
 # ---------------------------------------------------------------------------
-# Immutable green storage
+# 不可变 green 存储层
 # ---------------------------------------------------------------------------
 
 class _GreenMixin:
+    """定义所有 green 元素共同需要提供的渲染和字节宽度接口。"""
     def render(self) -> str:
+        """渲染当前 green 元素所代表的源码文本。"""
         raise NotImplementedError
 
     @property
     def byte_width(self) -> int:
+        """返回当前 green 元素按源码编码后的字节宽度。"""
         raise NotImplementedError
 
 
 @dataclass(frozen=True, slots=True)
 class GreenTrivia(_GreenMixin):
-    """Immutable source text that is not represented as a parser syntax child.
-
-    Whitespace and byte gaps are kept explicitly so rendering a complete green tree
-    can reproduce the original source byte-for-byte.
-    """
+    """表示 parser 未作为语法 child 暴露、但为逐字节 round-trip 必须原样保存的空白或源码间隙。"""
     kind: str
     text: str
 
     def render(self) -> str:
-        """Render this represented source without normalization."""
+        """原样返回该 trivia 所保存的源码文本。"""
         return self.text
 
     @property
     def byte_width(self) -> int:
-        """Return the encoded source width in bytes."""
+        """返回该 trivia 按源码编码后的字节宽度。"""
         return len(encode_source(self.text))
 
 
 @dataclass(frozen=True, slots=True)
 class GreenToken(_GreenMixin):
-    """Immutable leaf syntax element containing exactly the represented source text."""
+    """表示不可变的叶子 token，并保存它实际代表的源码文本。"""
     kind: str
     text: str
     named: bool = False
@@ -51,36 +50,31 @@ class GreenToken(_GreenMixin):
     error: bool = False
 
     def render(self) -> str:
-        """Render this represented source without normalization."""
+        """原样返回该 token 所保存的源码文本。"""
         return self.text
 
     @property
     def byte_width(self) -> int:
-        """Return the encoded source width in bytes."""
+        """返回该 token 按源码编码后的字节宽度。"""
         return len(encode_source(self.text))
 
 
-# Every green child is either syntax (node/token) or preserved source trivia.
+# 每个 green child 要么是语法 node/token，要么是必须保留的源码 trivia。
 GreenElement: TypeAlias = "GreenNode | GreenToken | GreenTrivia"
 
 
 @dataclass(frozen=True, slots=True)
 class GreenChild:
-    """One child edge in a green node, including the parser field name when available."""
+    """表示 GreenNode 到子元素的一条边，并携带可选 field 标签。"""
     element: GreenElement
     field: str | None = None
 
 
-# Green nodes never carry parent pointers or absolute positions. Those belong to
-# the red view layer, which keeps green subtrees reusable across snapshots.
+# GreenNode 不保存 parent 指针和绝对位置；这些信息属于 red 视图层。
+# 因而未变化的 green 子树可以安全地在多个不可变快照之间复用。
 @dataclass(frozen=True)
 class GreenNode(_GreenMixin):
-    """Immutable, position-independent syntax node.
-
-    Green nodes deliberately store no parent pointer or absolute offset. That makes
-    them safe to share across immutable snapshots and lets low-level rewrites reuse
-    unchanged subtrees.
-    """
+    """表示不可变且与绝对位置无关的语法节点；不保存 parent/offset，因此未修改子树可以安全跨不可变快照复用。"""
     kind: str
     children: tuple[GreenChild, ...]
     named: bool = True
@@ -88,16 +82,16 @@ class GreenNode(_GreenMixin):
     error: bool = False
 
     def render(self) -> str:
-        """Render this represented source without normalization."""
+        """按 children 顺序拼接并渲染当前节点代表的完整源码。"""
         return "".join(child.element.render() for child in self.children)
 
     @cached_property
     def byte_width(self) -> int:
-        """Return the encoded source width in bytes."""
+        """返回全部 children 字节宽度之和。"""
         return sum(child.element.byte_width for child in self.children)
 
     def replacing_child(self, index: int, element: GreenElement) -> GreenNode:
-        """Return a copy with one child replaced while preserving that edge's field label."""
+        """返回替换指定 child 后的新 GreenNode，并保留原 edge 的 field 标签。"""
         if index < 0 or index >= len(self.children):
             raise IndexError(index)
         children = list(self.children)
@@ -118,7 +112,7 @@ class GreenNode(_GreenMixin):
         *,
         field: str | None = None,
     ) -> GreenNode:
-        """Return a copy with a new child inserted at the requested structural index."""
+        """返回在指定结构索引插入 child 后的新 GreenNode。"""
         if index < 0 or index > len(self.children):
             raise IndexError(index)
         children = list(self.children)
@@ -132,7 +126,7 @@ class GreenNode(_GreenMixin):
         )
 
     def removing_child(self, index: int) -> GreenNode:
-        """Return a copy without the selected child."""
+        """返回移除指定 child 后的新 GreenNode。"""
         if index < 0 or index >= len(self.children):
             raise IndexError(index)
         children = list(self.children)

@@ -1,4 +1,4 @@
-"""CMake parser configuration sourced from the optional language-pack grammar."""
+"""配置可选的 CMake 解析后端；Tree-sitter 仅在 CMake extra 中使用，与 C++ 前端无关。"""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Persistent syntax-tree rewriter that preserves unchanged green subtrees."""
+"""定义持久化语法树重写器；未修改的 green 子树保持对象复用。"""
 
 from __future__ import annotations
 
@@ -7,18 +7,14 @@ from .tree import SyntaxTree
 
 
 class SyntaxRewriter:
-    """Functional green-tree rewriter.
-
-    Subclass visit_node/visit_token/visit_trivia. Returning the original object
-    keeps identity and allows unchanged ancestor branches to be reused.
-    """
+    """按函数式方式重写 green 树；钩子返回原对象时保持 identity，使未变化的祖先分支可以继续复用。"""
     def rewrite(self, tree: SyntaxTree) -> SyntaxTree:
-        """Rewrite a tree and return a new snapshot with the same language/source metadata."""
+        """重写整棵树并返回保留语言、诊断和源码身份的新快照。"""
         root = self.visit_node(tree.green_root)
         return SyntaxTree(tree.language, root, tree.diagnostics, tree.source_name)
 
     def visit_node(self, node: GreenNode) -> GreenNode:
-        """Rewrite children recursively and rebuild this node only if some child changed."""
+        """递归重写 children，仅在至少一个 child 改变时重建当前 GreenNode。"""
         changed = False
         children: list[GreenChild] = []
         for child in node.children:
@@ -36,15 +32,15 @@ class SyntaxRewriter:
         )
 
     def visit_token(self, token: GreenToken) -> GreenElement:
-        """Handle one syntax token."""
+        """处理一个 GreenToken；默认保持原对象不变。"""
         return token
 
     def visit_trivia(self, trivia: GreenTrivia) -> GreenElement:
-        """Handle one preserved trivia element."""
+        """处理一个 GreenTrivia；默认保持原对象不变。"""
         return trivia
 
     def visit(self, element: GreenElement) -> GreenElement:
-        """Dispatch this element to the appropriate visitor or rewriter hook."""
+        """按 GreenNode、GreenToken 或 GreenTrivia 类型分派到对应重写钩子。"""
         if isinstance(element, GreenNode):
             return self.visit_node(element)
         if isinstance(element, GreenToken):

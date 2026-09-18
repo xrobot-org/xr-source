@@ -1,4 +1,4 @@
-"""Public package surface for the language-neutral source model and C++ frontend."""
+"""定义 xr-source 顶层公共接口，集中导出语言无关语法核心以及 C++ 前端的常用类型。"""
 
 from .core import (
     Diagnostic,

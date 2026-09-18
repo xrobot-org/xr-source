@@ -1,4 +1,4 @@
-"""Structured builder for complete CMake source files."""
+"""提供完整 CMake 文件的结构化构建器，并把生成结果重新解析为统一的语法模型。"""
 
 from __future__ import annotations
 
@@ -13,21 +13,21 @@ from .factory import CMakeFactory
 
 @dataclass(slots=True)
 class CMakeFileBuilder:
-    """Top-level builder for complete CMake files using parser-backed fragments."""
+    """用于按源码顺序累积 CMake 片段并最终构建完整 CMakeDocument 的顶层构建器。"""
     factory: CMakeFactory = field(default_factory=CMakeFactory)
     items: list[GreenElement] = field(default_factory=list)
 
     def add(self, element: GreenElement) -> GreenElement:
-        """Append the element to this builder and return it."""
+        """把一个语法元素追加到当前文件构建器，并返回该元素便于继续组合。"""
         self.items.append(element)
         return element
 
     def raw(self, source: str) -> GreenElement:
-        """Append or create opaque source text without interpreting its internal structure."""
+        """追加一段不解释内部结构的原始 CMake 源码。"""
         return self.add(self.factory.raw(source))
 
     def comment(self, text: str) -> GreenElement:
-        """Append or create a source comment."""
+        """创建并追加一条 CMake 行注释。"""
         return self.add(self.factory.comment(text))
 
     def command(
@@ -35,7 +35,7 @@ class CMakeFileBuilder:
         name: str,
         arguments: Iterable[str] = (),
     ) -> GreenElement:
-        """Create and append one command."""
+        """创建并追加一个 CMake 命令。"""
         return self.add(self.factory.command(name, arguments))
 
     def if_block(
@@ -43,11 +43,11 @@ class CMakeFileBuilder:
         condition: Iterable[str],
         body: Iterable[GreenElement],
     ) -> GreenElement:
-        """Create and append one complete conditional block."""
+        """创建并追加一个完整的 if()/endif() 条件块。"""
         return self.add(self.factory.if_block(condition, body))
 
     def build(self) -> CMakeDocument:
-        """Render all fragments and parse the complete source back into CMakeDocument."""
+        """渲染已累积片段，再重新解析为完整的 CMakeDocument。"""
         rendered = [item.render().rstrip("\r\n") for item in self.items]
         source = "\n".join(rendered)
         if source and not source.endswith("\n"):

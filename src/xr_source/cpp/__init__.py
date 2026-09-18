@@ -1,4 +1,4 @@
-"""C++ frontend: parser, grammar metadata, structured queries, views, and builders."""
+"""集中导出 C++ 原生解析器、grammar、查询视图、片段工厂和构建器。"""
 
 from .builder import CppBlockBuilder, CppFileBuilder, CppFunctionBuilder
 from .document import CppDocument, CppRegion

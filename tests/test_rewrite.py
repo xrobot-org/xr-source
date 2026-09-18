@@ -1,7 +1,9 @@
+"""验证不可变重写只重建修改路径，并复用未变化的 green 子树。"""
 from xr_source.cpp import CppDocument, CppFactory
 
 
 def test_immutable_replace_reuses_unchanged_tree() -> None:
+    """验证不可变 replace 会复用未发生变化的 green 子树。"""
     document = CppDocument.parse("int a = 1;\nint b = 2;\n")
     declarations = document.nodes("declaration")
     replacement = CppFactory().declaration("int a = 42")

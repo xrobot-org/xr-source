@@ -1,4 +1,4 @@
-"""Parent-aware, position-aware views over immutable green syntax elements."""
+"""定义绑定到某一语法快照的 red 视图，为 green 元素补充父节点、字段、索引和字节偏移。"""
 
 from __future__ import annotations
 
@@ -13,15 +13,11 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
-# Snapshot-specific red views
+# 绑定到具体快照的 red 视图
 # ---------------------------------------------------------------------------
 
 class SyntaxElement:
-    """Snapshot-specific view that adds parent, field, index and byte offset to a green element.
-
-    A red element must never be reused with a different SyntaxTree snapshot; its
-    path and offset are meaningful only in the tree that created it.
-    """
+    """把 green 元素绑定到一个 SyntaxTree 快照，并补充父节点、索引、field 与字节偏移；red 元素的路径和位置只对所属快照有效。"""
     __slots__ = ("_tree", "_green", "_parent", "_index", "_offset", "_field")
 
     def __init__(
@@ -34,6 +30,7 @@ class SyntaxElement:
         offset: int,
         field: str | None,
     ) -> None:
+        """把 green 元素绑定到所属 SyntaxTree，并记录父节点、索引、偏移和 field。"""
         self._tree = tree
         self._green = green
         self._parent = parent
@@ -43,102 +40,103 @@ class SyntaxElement:
 
     @property
     def tree(self) -> SyntaxTree:
-        """Return the owning syntax-tree snapshot."""
+        """返回该 red 元素所属的 SyntaxTree 快照。"""
         return self._tree
 
     @property
     def green(self) -> GreenElement:
-        """Return the wrapped immutable green element."""
+        """返回该 red 视图包装的不可变 green 元素。"""
         return self._green
 
     @property
     def parent(self) -> SyntaxNode | None:
-        """Return the parent syntax node, or None for the root."""
+        """返回父 SyntaxNode；根节点返回 None。"""
         return self._parent
 
     @property
     def index(self) -> int:
-        """Return this element's structural child index."""
+        """返回该元素在父节点 children 中的结构索引。"""
         return self._index
 
     @property
     def field(self) -> str | None:
-        """Return the parser field label on the parent edge, when present."""
+        """返回父节点 edge 上的 parser field 名称；没有则返回 None。"""
         return self._field
 
     @property
     def kind(self) -> str:
-        """Return the parser syntax-kind spelling."""
+        """返回该元素的语法 kind 拼写。"""
         return self._green.kind
 
     @property
     def span(self) -> SourceSpan:
-        """Return this element's half-open source byte span."""
+        """返回该元素在原始源码中的半开字节范围。"""
         return SourceSpan(self._offset, self._offset + self._green.byte_width)
 
     @property
     def text(self) -> str:
-        """Wrap literal text as a layout document."""
+        """原样返回该语法元素代表的源码文本。"""
         return self._green.render()
 
     @property
     def path(self) -> tuple[int, ...]:
-        # A path is snapshot-relative: it identifies structural child indices,
-        # not a stable identity that may be carried across edited documents.
-        """Return the source spelling of this path."""
+        # path 只在当前快照内有意义：它记录结构 child 索引，
+        # 不是可以跨编辑后文档继续携带的稳定对象身份。
+        """返回由 child 索引组成的快照内结构路径。"""
         if self._parent is None:
             return ()
         return self._parent.path + (self._index,)
 
     @property
     def is_node(self) -> bool:
-        """Report whether this element wraps a syntax node."""
+        """判断该元素是否包装 GreenNode。"""
         return isinstance(self._green, GreenNode)
 
     @property
     def is_token(self) -> bool:
-        """Report whether this element wraps a syntax token."""
+        """判断该元素是否包装 GreenToken。"""
         return isinstance(self._green, GreenToken)
 
     @property
     def is_trivia(self) -> bool:
-        """Report whether this element wraps preserved trivia."""
+        """判断该元素是否包装保留的 GreenTrivia。"""
         return isinstance(self._green, GreenTrivia)
 
     def __repr__(self) -> str:
+        """返回包含 kind 和 span 的调试字符串。"""
         return f"{type(self).__name__}(kind={self.kind!r}, span={self.span!r})"
 
 
-# Red nodes derive parent/offset information from one owning SyntaxTree.
+# Red node 的 parent/offset 都从所属 SyntaxTree 快照派生。
 class SyntaxNode(SyntaxElement):
-    """Parent-aware view of a GreenNode with traversal and field-query helpers."""
+    """GreenNode 的 red 视图，提供 children、field 和 descendants 等查询能力。"""
 
     @property
     def green(self) -> GreenNode:
-        """Return the wrapped immutable green element."""
+        """返回当前 red 节点包装的 GreenNode。"""
         return self._green  # type: ignore[return-value]
 
     @property
     def named(self) -> bool:
-        """Return the parser's named-versus-anonymous classification."""
+        """返回 parser 对该节点的 named/anonymous 分类。"""
         return self.green.named
 
     @property
     def missing(self) -> bool:
-        """Report whether parser recovery synthesized this element."""
+        """判断该节点是否由 parser 错误恢复过程合成。"""
         return self.green.missing
 
     @property
     def error(self) -> bool:
-        """Report whether this element is marked as parser error recovery."""
+        """判断该节点是否被标记为 parser error recovery。"""
         return self.green.error
 
     @property
     def children(self) -> tuple[SyntaxElement, ...]:
-        """Materialize red child views and derive their absolute byte offsets in source order."""
+        """物化所有 red child，并按 green child 宽度推导绝对字节偏移。"""
         result: list[SyntaxElement] = []
-        # Absolute positions are derived here from immutable child widths rather
-        # than stored in green nodes. This is what keeps green subtrees reusable.
+        # 绝对位置在这里根据不可变 child 的字节宽度推导，而不是写进 green node。
+        # 这正是 green 子树能够跨快照复用的前提。
         offset = self._offset
         for index, child in enumerate(self.green.children):
             result.append(
@@ -155,12 +153,12 @@ class SyntaxNode(SyntaxElement):
 
     @property
     def syntax_children(self) -> tuple[SyntaxElement, ...]:
-        """Return parser syntax children while excluding xr-source trivia gap objects."""
+        """返回 parser 语法 children，并排除 xr-source 自己补的 trivia gap。"""
         return tuple(child for child in self.children if not child.is_trivia)
 
     @property
     def named_syntax_children(self) -> tuple[SyntaxElement, ...]:
-        """Return named parser nodes/tokens, excluding anonymous punctuation and trivia."""
+        """返回 named node/token，排除匿名标点和 trivia。"""
         return tuple(
             child
             for child in self.syntax_children
@@ -172,7 +170,7 @@ class SyntaxNode(SyntaxElement):
 
     @property
     def named_children(self) -> tuple[SyntaxNode, ...]:
-        """Return named child nodes only."""
+        """只返回 named 的 SyntaxNode 子节点。"""
         return tuple(
             child
             for child in self.named_syntax_children
@@ -180,16 +178,16 @@ class SyntaxNode(SyntaxElement):
         )
 
     def child_by_field(self, field: str) -> SyntaxElement | None:
-        """Return the first child carried by a parser field with this name."""
+        """返回指定 field 上的第一个 child；不存在时返回 None。"""
         return next((child for child in self.children if child.field == field), None)
 
     def children_by_field(self, field: str) -> tuple[SyntaxElement, ...]:
-        """Return all children carried by a repeated parser field."""
+        """返回重复 field 上的全部 children。"""
         return tuple(child for child in self.children if child.field == field)
 
     @property
     def field_names(self) -> tuple[str, ...]:
-        """Return field labels present on this syntax node."""
+        """按首次出现顺序返回当前节点实际存在的 field 名称。"""
         return tuple(
             dict.fromkeys(
                 child.field for child in self.children if child.field is not None
@@ -203,7 +201,7 @@ class SyntaxNode(SyntaxElement):
         include_self: bool = False,
         include_trivia: bool = False,
     ) -> Iterator[SyntaxElement]:
-        """Depth-first traversal of descendants with optional kind/trivia filtering."""
+        """按深度优先顺序遍历后代，并支持 kind 和 trivia 过滤。"""
         if include_self and (kind is None or self.kind == kind):
             yield self
         for child in self.children:
@@ -215,45 +213,45 @@ class SyntaxNode(SyntaxElement):
                 yield from child.descendants(kind, include_trivia=include_trivia)
 
     def first_descendant(self, kind: str) -> SyntaxElement | None:
-        """Return the first depth-first descendant of the requested kind."""
+        """返回深度优先遍历中第一个指定 kind 的后代。"""
         return next(self.descendants(kind), None)
 
 
 class SyntaxToken(SyntaxElement):
-    """Red view of an immutable syntax token."""
+    """不可变 GreenToken 在指定语法快照中的 red 视图。"""
 
     @property
     def green(self) -> GreenToken:
-        """Return the wrapped immutable green element."""
+        """返回当前 red token 包装的 GreenToken。"""
         return self._green  # type: ignore[return-value]
 
     @property
     def named(self) -> bool:
-        """Return the parser's named-versus-anonymous classification."""
+        """返回 parser 对该 token 的 named/anonymous 分类。"""
         return self.green.named
 
     @property
     def missing(self) -> bool:
-        """Report whether parser recovery synthesized this element."""
+        """判断该 token 是否由 parser 错误恢复过程合成。"""
         return self.green.missing
 
     @property
     def error(self) -> bool:
-        """Report whether this element is marked as parser error recovery."""
+        """判断该 token 是否被标记为 parser error recovery。"""
         return self.green.error
 
 
 class SyntaxTrivia(SyntaxElement):
-    """Red view of preserved source trivia that the parser did not expose as syntax."""
+    """保留源码 trivia 在指定语法快照中的 red 视图。"""
 
     @property
     def green(self) -> GreenTrivia:
-        """Return the wrapped immutable green element."""
+        """返回当前 red trivia 包装的 GreenTrivia。"""
         return self._green  # type: ignore[return-value]
 
 
-# Central green -> red adapter. Keep construction here so all red views use the
-# same parent/index/offset rules.
+# 统一的 green -> red 适配入口。集中构造可确保所有 red 视图遵守同一套
+# parent/index/offset 计算规则。
 def _wrap(
     tree: SyntaxTree,
     child: GreenChild,
@@ -262,6 +260,7 @@ def _wrap(
     index: int,
     offset: int,
 ) -> SyntaxElement:
+    """根据 GreenChild 的具体类型创建对应 red 视图，并统一传递父节点和偏移信息。"""
     green = child.element
     if isinstance(green, GreenNode):
         return SyntaxNode(

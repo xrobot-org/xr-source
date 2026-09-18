@@ -1,3 +1,4 @@
+"""验证 C++ 类型化视图对类、函数、参数、调用和变量的源码级解释。"""
 from xr_source.cpp import CppDocument
 
 SOURCE = """class Example {
@@ -12,6 +13,7 @@ SOURCE = """class Example {
 
 
 def test_class_and_function_views() -> None:
+    """验证类和函数视图能正确提取名称、参数、访问级别和函数体。"""
     document = CppDocument.parse(SOURCE)
     view = document.class_views("Example")[0]
     constructors = view.constructors(public_only=True)
@@ -33,6 +35,7 @@ def test_class_and_function_views() -> None:
 
 
 def test_complex_declarator_type_spelling() -> None:
+    """验证复杂 declarator 的源码级类型拼写能够完整重建。"""
     document = CppDocument.parse(
         "void f(int (*cb)(double), int (&arr)[3], const X* p = nullptr) {}"
     )
@@ -47,6 +50,7 @@ def test_complex_declarator_type_spelling() -> None:
 
 
 def test_template_parameter_views() -> None:
+    """验证模板参数视图的名称、类型和默认值提取。"""
     document = CppDocument.parse(
         "template <typename T, int N = 3, Foo V> class C {};"
     )
@@ -57,6 +61,7 @@ def test_template_parameter_views() -> None:
 
 
 def test_deleted_special_members_are_structured_but_not_callable() -> None:
+    """验证 = delete 特殊成员仍被结构化，但不会被视为可调用构造函数。"""
     document = CppDocument.parse(
         "class C { public: C(int); C(const C&) = delete; "
         "C& operator=(const C&) = delete; ~C() = default; };"
@@ -72,6 +77,7 @@ def test_deleted_special_members_are_structured_but_not_callable() -> None:
 
 
 def test_call_view_arguments() -> None:
+    """验证调用视图按源码顺序返回完整实参。"""
     document = CppDocument.parse("void f() { target(a, b + c); }")
     call = document.call_views("target")[0]
     assert call.callee == "target"
@@ -79,6 +85,7 @@ def test_call_view_arguments() -> None:
 
 
 def test_include_and_variable_views_cover_file_and_function_scope() -> None:
+    """验证 include 与变量视图同时覆盖文件作用域和函数作用域。"""
     document = CppDocument.parse(
         '#include "local.hpp"\n'
         '#include <vector>\n'

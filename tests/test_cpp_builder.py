@@ -1,7 +1,9 @@
+"""验证 C++ 文件、函数和代码块构建器覆盖常用生成场景。"""
 from xr_source.cpp import CppFileBuilder
 
 
 def test_source_builder_covers_common_generator_operations() -> None:
+    """验证 C++ builder 覆盖常用代码生成操作。"""
     source = CppFileBuilder()
     source.include("app_main.h")
     source.include("cstdint", system=True)
@@ -34,6 +36,7 @@ def test_source_builder_covers_common_generator_operations() -> None:
 
 
 def test_header_builder_adds_pragma_once() -> None:
+    """验证头文件 builder 会按约定加入 pragma once。"""
     header = CppFileBuilder(header=True)
     header.include("thread.hpp")
     document = header.build()
@@ -41,6 +44,7 @@ def test_header_builder_adds_pragma_once() -> None:
 
 
 def test_file_builder_structures_format_and_lint_regions() -> None:
+    """验证文件 builder 能生成结构化 format 与 lint 保护区域。"""
     source = CppFileBuilder()
     declaration = source.factory.declaration("static int generated = 0")
     source.format_disabled([declaration])

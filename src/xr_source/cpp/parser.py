@@ -74,6 +74,7 @@ class CppParser:
 
 
 class _StructuralParser(_DeclarationMixin, _ExpressionMixin, _DeclaratorMixin, _RangeMixin):
+    """组合声明、declarator、表达式和区间解析阶段，构成原生 C++ 结构 parser。"""
     def __init__(self, lexemes: Sequence[_Lexeme], diagnostics: Iterable[Diagnostic]) -> None:
         """保存词法结果并建立括号配对表。"""
         self.lexemes = tuple(lexemes)

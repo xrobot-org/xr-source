@@ -1,66 +1,61 @@
 # xr-source
 
-`xr-source` provides lossless, structured source editing for XRobot tooling.
+`xr-source` 是面向 XRobot 工具链的**无损、结构化源码模型与重写基础设施**。
 
-It can read an existing C++/header or CMake file into a queryable syntax tree,
-modify selected structure without losing unrelated source text, and generate new
-source through the same model.
+它可以把现有的 C++/头文件或 CMake 文件读成可查询的语法树，在不破坏无关源码的前提下修改指定结构，也可以通过同一套语法模型生成新源码。
 
-The main guarantee is source fidelity:
+最核心的不变量是源码保真：
 
 ```python
 tree = CppParser().parse(source)
 assert tree.render_bytes() == source
 ```
 
-Parser diagnostics do not disable round-trip preservation. Syntax structure and
-compiler semantics are deliberately separate: `xr-source` does not perform C++
-name lookup, overload resolution, template instantiation, type inference, or
-constant evaluation.
+Parser 可以产生诊断，但诊断不能成为丢失源码字节的理由。`xr-source` 只处理**源码结构**，不承担 C++ 编译器语义工作，例如名称查找、重载决议、模板实例化、类型推导或常量求值。
 
-## Installation
+## 安装
 
-C++ support is included by default:
+C++ 前端默认包含，而且**基础安装没有运行时依赖**：
 
 ```sh
 pip install xr-source
 ```
 
-Install the optional CMake frontend when needed:
+需要 CMake 前端时再安装可选依赖：
 
 ```sh
 pip install "xr-source[cmake]"
 ```
 
-Python 3.10 or newer is required.
+当前要求 Python 3.10 及以上版本。
 
-## What this package is for
+## 这个包解决什么问题
 
-The package is intended to replace ad-hoc source manipulation such as:
+目标是替换项目里分散、难维护的源码处理方式，例如：
 
-- string concatenation for generated `.cpp/.hpp` files;
-- regular expressions for locating user code regions;
-- custom token scanners for common C++ constructs;
-- one-off CMake text patching;
-- duplicated formatting decisions inside application logic.
+- 用字符串拼接生成 `.cpp/.hpp`；
+- 用正则查找 User Code 区域；
+- 为常见 C++ 结构各写一套临时 token scanner；
+- 对 CMake 做一次性文本 patch；
+- 在 XRobot/LibXR 业务代码里重复实现换行和缩进逻辑。
 
-It is not a compiler frontend replacement. Compiler-only questions should stay in
-the compiler or in an optional semantic provider.
+它**不是**编译器前端的替代品。需要回答“这个名字绑定到哪个声明”“最终选中了哪个重载”“模板实例化后是什么类型”之类的问题时，应交给编译器或独立的可选 semantic provider。
 
-## Files and responsibilities
+## 目录职责
 
-| Package | Responsibility |
+| 包/文件 | 职责 |
 | --- | --- |
-| `xr_source.core` | Immutable syntax tree, source spans, rewrites, grammar metadata |
-| `xr_source.parser` | Optional parser backend adapters used by non-C++ frontends |
-| `xr_source.format` | Width-aware layout IR used by generated source |
-| `xr_source.cpp` | C++ parser, queries, typed views, regions, factories, builders |
-| `xr_source.cmake` | CMake parser, command views, factories, builders |
-| `docs/REVIEW_GUIDE.md` | Short architecture review path |
-| `docs/ARCHITECTURE.md` | Detailed design and invariants |
-| `docs/VALIDATION.md` | Corpus, compatibility, packaging and version evidence |
+| `xr_source.core` | 不可变 green/red 语法树、源码范围、重写、grammar 合同 |
+| `xr_source.cpp` | 自有 C++ lexer/parser、查询、类型化视图、区域、factory、builder |
+| `xr_source.format` | 新生成源码使用的宽度感知布局 IR |
+| `xr_source.parser` | 可选 parser backend 适配层；当前主要服务 CMake |
+| `xr_source.cmake` | CMake parser、命令视图、factory、builder |
+| `docs/REVIEW_GUIDE.md` | 最短代码审查路径 |
+| `docs/ARCHITECTURE.md` | 分层设计与核心不变量 |
+| `docs/VALIDATION.md` | 测试、corpus、依赖隔离和打包证据 |
+| `docs/ROADMAP.md` | 后续演进计划 |
 
-## Read existing C++
+## 读取现有 C++
 
 ```python
 from xr_source.cpp import CppDocument
@@ -90,7 +85,7 @@ print(function.name)
 print([argument.text for argument in registration.arguments])
 ```
 
-Common source-level queries include:
+常用源码级查询包括：
 
 ```python
 document.includes()
@@ -106,12 +101,11 @@ document.variable_views(global_scope=True)
 document.variable_views(global_scope=False)
 ```
 
-These are convenience views over the complete syntax tree. They do not replace
-the underlying grammar representation.
+这些都是完整语法树之上的便捷视图，不是另一套简化 AST，也不会替代底层 grammar 表示。
 
-## Edit existing C++
+## 修改现有 C++
 
-Documents are immutable snapshots. An edit returns a new document.
+文档对象是不可变快照。任何编辑都会返回新的文档：
 
 ```python
 from xr_source.cpp import CppDocument, CppFactory
@@ -137,13 +131,11 @@ assert changed.render() == (
 )
 ```
 
-High-level document edits reparse the changed source before returning. This keeps
-parser-owned field labels, diagnostics, and error-recovery structure synchronized
-with the edited text.
+底层 `SyntaxTree` 编辑会复用没有变化的 green 子树；高层 `CppDocument`/`CMakeDocument` 在编辑后会把结果重新解析一次，从而保证 parser 管理的 field、诊断和错误恢复结构不会过期。
 
-## User code and protected regions
+## User Code 与受保护区域
 
-STM32-style user regions are structured instead of copied with regular expressions:
+STM32 风格 User Code 区域是正式结构，而不是靠正则复制：
 
 ```cpp
 /* User Code Begin 3 */
@@ -162,17 +154,16 @@ changed = document.replace_region_body(
 )
 ```
 
-The C++ frontend also recognizes:
+C++ 前端还识别：
 
-- `// clang-format off` / `// clang-format on`;
-- `// NOLINTBEGIN` / `// NOLINTEND`.
+- `// clang-format off` / `// clang-format on`；
+- `// NOLINTBEGIN` / `// NOLINTEND`。
 
-Builders can create the same protected regions when generating new source.
+Builder 也可以生成同样的成对区域。
 
-## Generate C++
+## 生成 C++
 
-The builder API produces the same parser-backed syntax model used for parsed
-source. There is no separate generated-code AST.
+Builder 生成的不是另一套“生成 AST”，而是最终仍会进入同一个 parser-backed 语法模型：
 
 ```python
 from xr_source.cpp import CppFileBuilder
@@ -199,7 +190,7 @@ document = source.build()
 print(document.render())
 ```
 
-For lower-level fragment creation use `CppFactory`:
+需要更底层的片段构造时使用 `CppFactory`：
 
 ```python
 from xr_source.cpp import CppFactory
@@ -217,11 +208,34 @@ declaration = factory.variable(
 )
 ```
 
-## C++ grammar access
+## 自有 C++ parser
 
-The C++ structural grammar is maintained by `xr-source` itself and exposed as
-versioned data. It is independent of `tree-sitter-cpp` and does not require a
-third-party C++ parser at runtime.
+C++ 前端已经彻底去掉 `tree-sitter-cpp`：
+
+```text
+xr-source native C++ source parser
+grammar: xr-cpp-0.1
+base runtime dependencies: none
+tree-sitter-cpp: none
+```
+
+当前 C++ 路径由以下层组成：
+
+```text
+lossless lexer
+    ↓
+source-level structural parser
+    ↓
+GreenNode / GreenToken / GreenTrivia
+    ↓
+SyntaxTree / CppDocument / typed views
+```
+
+Parser 只做源码级结构化，不做编译器语义。对于无法在没有语义信息的情况下安全分类的结构，优先保留成 generic lossless source node，而不是冒险猜错并破坏源码。
+
+## C++ grammar 合同
+
+C++ grammar 合同由 `xr-source` 自己维护，不再从 `tree-sitter-cpp/node-types.json` 读取：
 
 ```python
 from xr_source.cpp import CPP_GRAMMAR
@@ -236,12 +250,11 @@ assert CPP_GRAMMAR.is_subtype("lambda_expression", "expression")
 assert CPP_GRAMMAR.is_subtype("requires_expression", "expression")
 ```
 
-This grammar layer describes syntax only. It does not answer semantic questions
-such as which declaration an identifier refers to.
+这一层描述的是语法结构合同，不回答 identifier 绑定、重载选择等语义问题。
 
 ## CMake
 
-CMake uses the same immutable syntax, rewrite, grammar, and layout infrastructure.
+CMake 使用与 C++ 相同的不可变语法树、重写和布局核心，但 parser backend 是独立可选依赖：
 
 ```python
 from xr_source.cmake import CMakeDocument
@@ -261,7 +274,7 @@ assert [argument.text for argument in library.arguments] == [
 ]
 ```
 
-Generate a new CMake file:
+生成新的 CMake 文件：
 
 ```python
 from xr_source.cmake import CMakeFileBuilder
@@ -275,14 +288,16 @@ document = cmake.build()
 print(document.render())
 ```
 
-## Formatting
+当前 `xr-source[cmake]` 使用 `tree-sitter-language-pack 1.20.0`。这个依赖**不会进入 C++ frontend 的运行路径**。
 
-Rendering and formatting are separate operations.
+## 格式化
 
-- `render()` preserves represented source;
-- the layout layer decides how newly generated source wraps and indents.
+`render()` 和 format 是两件事：
 
-The layout IR provides small primitives such as:
+- `render()`：原样输出当前语法模型代表的源码；
+- layout IR：决定**新生成源码**如何换行和缩进。
+
+当前布局 IR 包含：
 
 ```text
 Text
@@ -295,94 +310,67 @@ HardLine
 IfBreak
 ```
 
-Language-specific factories use these primitives instead of embedding line-length
-logic inside XRobot or LibXR business code.
+语言层 factory 通过这些 primitive 生成源码，避免把行宽判断和缩进策略散落到 XRobot/LibXR 业务代码里。
 
-## Design boundaries
+## 设计边界
 
-`xr-source` is responsible for source structure:
+`xr-source` 负责：
 
-- source byte preservation;
-- syntax nodes, tokens, trivia and spans;
-- grammar field/child/subtype contracts;
-- immutable structural edits;
-- common source-level C++ and CMake views;
-- deterministic generated-source layout.
+- 源码字节保真；
+- node/token/trivia/span；
+- grammar field/children/subtype 合同；
+- 不可变结构编辑；
+- C++/CMake 的常用源码级视图；
+- 新生成源码的确定性布局。
 
-It is intentionally not responsible for:
+`xr-source` 不负责：
 
-- C++ name lookup;
-- overload resolution;
-- template instantiation;
-- type inference;
-- constant evaluation;
-- XRobot constructor/view compatibility;
-- hardware registration semantics.
+- C++ 名称查找；
+- 重载决议；
+- 模板实例化；
+- 类型推导；
+- 常量求值；
+- XRobot 构造函数/view 兼容策略；
+- 硬件注册语义。
 
-Those belong to the compiler or to the consuming application.
+## 当前验证状态
 
-## Parser backends
+当前 feature 分支已经验证：
 
-The default C++ frontend is self-contained:
+- Python 3.10 / 3.12 / 3.14；
+- Linux / Windows；
+- `pytest`、Ruff、`mypy --strict`；
+- sdist / pure-Python wheel / `twine check`；
+- 基础 wheel 独立安装时 C++ 不加载 Tree-sitter；
+- 公开真实 C/C++ corpus：1,850 文件、16,624,085 bytes、0 round-trip failure。
 
-```text
-xr-source native C++ source parser
-grammar: xr-cpp-0.1
-runtime dependency on tree-sitter-cpp: none
-```
+详细数据见 `docs/VALIDATION.md`。
 
-It performs lossless source parsing and the source-level structural queries needed
-by XRobot tooling. It deliberately does not attempt compiler semantics such as
-name lookup, overload resolution or template instantiation.
+## 开发
 
-CMake is a separate optional frontend. Installing `xr-source[cmake]` currently
-uses `tree-sitter-language-pack 1.20.0` for CMake parsing; this optional backend
-does not participate in the C++ frontend.
-
-## Validation
-
-The current review branch is tested on Python 3.10, 3.12, and 3.14.
-
-Validation includes:
-
-- unit and API tests;
-- public API documentation coverage;
-- ruff;
-- mypy strict;
-- sdist/wheel build;
-- twine metadata validation;
-- isolated wheel installation;
-- C++/header ecosystem round-trip;
-- CMake ecosystem round-trip;
-- XRobot Module constructor-interface parity.
-
-See `docs/VALIDATION.md` for the measured corpus and exact results.
-
-## Development
-
-Install all development and CMake dependencies:
+安装开发依赖和 CMake extra：
 
 ```sh
 pip install -e ".[dev,cmake]"
 ```
 
-Run the normal checks:
+常规检查：
 
 ```sh
 python -m pytest
+python tools/check_chinese_docs.py
 ruff check src tests tools
 mypy src
 python -m build
 twine check dist/*
 ```
 
-## Review
+## 代码审查入口
 
-If you are reviewing the implementation rather than using the package, start with:
+如果目的是审查实现而不是直接使用 API，先看：
 
 ```text
 docs/REVIEW_GUIDE.md
 ```
 
-It gives the shortest review path through the immutable syntax core, the native
-C++ lexer/parser, typed views, builders, and optional CMake backend.
+它给出从 immutable syntax core 到 native C++ lexer/parser、typed views、builder 和 optional CMake backend 的最短阅读路径。

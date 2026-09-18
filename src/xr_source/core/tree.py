@@ -1,4 +1,4 @@
-"""Immutable syntax-tree snapshot and low-level structural edit operations."""
+"""定义不可变 SyntaxTree 快照以及底层 replace/remove/insert 结构编辑操作。"""
 
 from __future__ import annotations
 
@@ -13,12 +13,7 @@ from .text import encode_source
 
 @dataclass(frozen=True, slots=True)
 class SyntaxTree:
-    """Immutable language syntax snapshot backed by a green root.
-
-    The tree owns diagnostics/source identity and creates red views on demand. Its
-    edit methods are intentionally low-level: they preserve structural sharing but
-    do not invoke the language parser again.
-    """
+    """保存某一语言不可变语法快照的 green root、诊断和源码身份，并提供不重新调用 parser 的底层持久化编辑。"""
     language: str
     green_root: GreenNode
     diagnostics: tuple[Diagnostic, ...] = ()
@@ -26,7 +21,7 @@ class SyntaxTree:
 
     @property
     def root(self) -> SyntaxNode:
-        """Create the red root view for this immutable snapshot."""
+        """创建并返回当前不可变语法快照的 red 根节点。"""
         return SyntaxNode(
             self,
             self.green_root,
@@ -37,11 +32,11 @@ class SyntaxTree:
         )
 
     def render(self) -> str:
-        """Render the complete represented source without normalization."""
+        """按 green root 原样渲染完整源码文本。"""
         return self.green_root.render()
 
     def render_bytes(self) -> bytes:
-        """Render the complete represented source as bytes."""
+        """按源码编码原样渲染完整源码字节。"""
         return encode_source(self.render())
 
     def replace(
@@ -49,7 +44,7 @@ class SyntaxTree:
         target: SyntaxElement,
         replacement: SyntaxElement | GreenElement,
     ) -> SyntaxTree:
-        """Persistently replace one element, reusing unaffected green subtrees."""
+        """持久化替换一个元素，仅重建目标到根路径上的节点。"""
         self._check_target(target)
         green = replacement.green if isinstance(replacement, SyntaxElement) else replacement
         if not target.path:
@@ -59,7 +54,7 @@ class SyntaxTree:
         return self._with_root(_replace_at(self.green_root, target.path, green))
 
     def remove(self, target: SyntaxElement) -> SyntaxTree:
-        """Persistently remove one non-root element."""
+        """持久化删除一个非根元素。"""
         self._check_target(target)
         if not target.path:
             raise ValueError("cannot remove the syntax tree root")
@@ -72,7 +67,7 @@ class SyntaxTree:
         *,
         separator: str = "",
     ) -> SyntaxTree:
-        """Persistently insert elements before a non-root target."""
+        """在非根目标元素前持久化插入一个或多个元素。"""
         self._check_target(target)
         if not target.path:
             raise ValueError("cannot insert beside the syntax tree root")
@@ -91,7 +86,7 @@ class SyntaxTree:
         *,
         separator: str = "",
     ) -> SyntaxTree:
-        """Persistently insert elements after a non-root target."""
+        """在非根目标元素后持久化插入一个或多个元素。"""
         self._check_target(target)
         if not target.path:
             raise ValueError("cannot insert beside the syntax tree root")
@@ -105,10 +100,12 @@ class SyntaxTree:
         )
 
     def _check_target(self, target: SyntaxElement) -> None:
+        """确认待编辑 red 元素确实属于当前 SyntaxTree 快照。"""
         if target.tree is not self:
             raise ValueError("target belongs to a different immutable syntax snapshot")
 
     def _with_root(self, root: GreenNode) -> SyntaxTree:
+        """用新 green root 构造保留语言和源码身份的新 SyntaxTree。"""
         return SyntaxTree(
             language=self.language,
             green_root=root,
@@ -122,6 +119,7 @@ def _replace_at(
     path: tuple[int, ...],
     element: GreenElement,
 ) -> GreenNode:
+    """按结构路径递归替换 green 元素，并复用路径外的子树。"""
     index = path[0]
     if len(path) == 1:
         return root.replacing_child(index, element)
@@ -132,6 +130,7 @@ def _replace_at(
 
 
 def _remove_at(root: GreenNode, path: tuple[int, ...]) -> GreenNode:
+    """按结构路径递归删除 green 元素，并复用路径外的子树。"""
     index = path[0]
     if len(path) == 1:
         return root.removing_child(index)
@@ -148,6 +147,7 @@ def _insert_at(
     *,
     before: bool,
 ) -> GreenNode:
+    """按结构路径递归插入 green 元素，并复用路径外的子树。"""
     index = path[0]
     if len(path) == 1:
         children = list(root.children)
