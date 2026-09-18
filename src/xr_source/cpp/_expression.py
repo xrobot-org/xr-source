@@ -6,9 +6,10 @@ from xr_source.core import GreenElement, GreenNode, GreenToken
 
 from ._ranges import _deduplicate_replacements, _Replacement
 from .lexer import _LITERAL_KINDS
+from ._support import _ParserSupport
 
 
-class _ExpressionMixin:
+class _ExpressionMixin(_ParserSupport):
     """解析 compound statement、控制流、调用和常见表达式结构。"""
 
     def _parse_compound(self, open_brace: int, close_brace: int) -> GreenNode:

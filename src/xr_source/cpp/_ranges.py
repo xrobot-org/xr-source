@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from xr_source.core import Diagnostic, GreenChild, GreenElement, GreenNode, SourcePoint, SourceSpan
 
 from .lexer import _BINARY_PRECEDENCE, _CONTROL
+from ._support import _ParserSupport
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,14 +21,13 @@ class _Replacement:
     field: str | None = None
 
 
-class _RangeMixin:
+class _RangeMixin(_ParserSupport):
     """提供 parser 各阶段共享的区间扫描、匹配、compose 与诊断操作。"""
 
     def _lowest_precedence_operator(self, start: int, end: int) -> int | None:
         """寻找表达式顶层绑定最弱的二元/赋值运算符。"""
         significant = self._significant(start, end)
         depth_round = depth_square = depth_brace = 0
-        angle_depth = 0
         best: tuple[int, int] | None = None
         for position, index in enumerate(significant):
             text = self.lexemes[index].text

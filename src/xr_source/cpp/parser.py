@@ -111,6 +111,7 @@ class _StructuralParser(_DeclarationMixin, _ExpressionMixin, _DeclaratorMixin, _
     def _parse_scope(self, start: int, end: int, *, context: str) -> list[_Replacement]:
         """按顶层语句/声明边界解析一个连续作用域。"""
         result: list[_Replacement] = []
+        replacement: _Replacement | None
         cursor = start
         while True:
             current = self._next_significant(cursor, end)

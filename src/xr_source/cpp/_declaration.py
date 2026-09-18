@@ -6,9 +6,10 @@ from xr_source.core import GreenNode, GreenToken
 
 from ._ranges import _Replacement
 from .lexer import _CONTROL, _STORAGE, _TYPE_WORDS
+from ._support import _ParserSupport
 
 
-class _DeclarationMixin:
+class _DeclarationMixin(_ParserSupport):
     """解析一个 source unit 中的函数声明/定义、参数与变量声明。"""
 
     def _parse_unit(self, start: int, end: int, *, context: str) -> _Replacement | None:
