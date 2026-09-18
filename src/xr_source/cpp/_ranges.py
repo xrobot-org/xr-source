@@ -2,23 +2,27 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from xr_source.core import Diagnostic, GreenChild, GreenElement, GreenNode, SourcePoint, SourceSpan
 
 from .lexer import _BINARY_PRECEDENCE, _CONTROL
 
+
 @dataclass(frozen=True, slots=True)
 class _Replacement:
     """描述 compose 时用结构节点替换连续 lexeme 区间。"""
+
     start: int
     end: int
     element: GreenElement
     field: str | None = None
 
+
 class _RangeMixin:
     """提供 parser 各阶段共享的区间扫描、匹配、compose 与诊断操作。"""
+
     def _lowest_precedence_operator(self, start: int, end: int) -> int | None:
         """寻找表达式顶层绑定最弱的二元/赋值运算符。"""
         significant = self._significant(start, end)
@@ -53,7 +57,11 @@ class _RangeMixin:
             # 一元 +/-/*/& 出现在表达式开头或另一个运算符之后，不当成 binary。
             if text in {"+", "-", "*", "&"}:
                 previous = significant[position - 1] if position else None
-                if previous is None or self.lexemes[previous].text in _BINARY_PRECEDENCE or self.lexemes[previous].text in {"(", "[", "{", ",", "?", ":"}:
+                if (
+                    previous is None
+                    or self.lexemes[previous].text in _BINARY_PRECEDENCE
+                    or self.lexemes[previous].text in {"(", "[", "{", ",", "?", ":"}
+                ):
                     continue
             if best is None or precedence <= best[0]:
                 best = (precedence, index)
@@ -86,10 +94,18 @@ class _RangeMixin:
                 close = self._pairs[index]
                 if first_text in {"class", "struct", "union", "enum"}:
                     semicolon = self._next_significant(close + 1, end)
-                    return semicolon + 1 if semicolon is not None and self.lexemes[semicolon].text == ";" else close + 1
+                    return (
+                        semicolon + 1
+                        if semicolon is not None and self.lexemes[semicolon].text == ";"
+                        else close + 1
+                    )
                 # direct-list initialization 要继续找到 ;，函数/namespace 则在 } 结束。
                 previous = self._previous_significant(index - 1, start)
-                if previous is not None and self.lexemes[previous].text not in {")", "try", "else", "do"} and first_text not in {"namespace", "extern"}:
+                if (
+                    previous is not None
+                    and self.lexemes[previous].text not in {")", "try", "else", "do"}
+                    and first_text not in {"namespace", "extern"}
+                ):
                     semicolon = self._next_significant(close + 1, end)
                     if semicolon is not None and self.lexemes[semicolon].text == ";":
                         return semicolon + 1
@@ -100,7 +116,11 @@ class _RangeMixin:
         """寻找控制流语句末尾，避免把 body 内分号误当外层结束。"""
         cursor = start + 1
         open_paren = self._next_significant(cursor, end)
-        if open_paren is not None and self.lexemes[open_paren].text == "(" and open_paren in self._pairs:
+        if (
+            open_paren is not None
+            and self.lexemes[open_paren].text == "("
+            and open_paren in self._pairs
+        ):
             cursor = self._pairs[open_paren] + 1
         body = self._next_significant(cursor, end)
         if body is None:
@@ -113,7 +133,11 @@ class _RangeMixin:
             else_index = self._next_significant(result, end)
             if else_index is not None and self.lexemes[else_index].text == "else":
                 else_body = self._next_significant(else_index + 1, end)
-                if else_body is not None and self.lexemes[else_body].text == "{" and else_body in self._pairs:
+                if (
+                    else_body is not None
+                    and self.lexemes[else_body].text == "{"
+                    and else_body in self._pairs
+                ):
                     result = self._pairs[else_body] + 1
                 elif else_body is not None:
                     result = self._find_unit_end(else_body, end, context="block")
@@ -185,7 +209,11 @@ class _RangeMixin:
     def _enclosing_open(self, index: int, token: str, lower_bound: int) -> int | None:
         """向左寻找包围某 token 的指定开括号。"""
         for candidate in range(index, lower_bound - 1, -1):
-            if self.lexemes[candidate].text == token and candidate in self._pairs and self._pairs[candidate] >= index:
+            if (
+                self.lexemes[candidate].text == token
+                and candidate in self._pairs
+                and self._pairs[candidate] >= index
+            ):
                 return candidate
         return None
 
@@ -259,7 +287,7 @@ class _RangeMixin:
             replacement
             for replacement in replacements
             if start <= replacement.start < replacement.end <= end
-         )
+        )
         children: list[GreenChild] = []
         cursor = start
         for replacement in ordered:
@@ -283,7 +311,6 @@ class _RangeMixin:
             end_byte = self.lexemes[end_index].end
             span = SourceSpan(start_byte, end_byte)
         self.diagnostics.append(Diagnostic(message, span, SourcePoint(0, 0), None))
-
 
 
 def _deduplicate_replacements(replacements: Iterable[_Replacement]) -> list[_Replacement]:

@@ -5,9 +5,7 @@ def test_cpp_grammar_schema_identity_and_root() -> None:
     """确认 C++ grammar 已由 xr-source 自己维护，而不是第三方 parser 元数据。"""
     assert CPP_GRAMMAR.version == "xr-cpp-0.1"
     assert CPP_GRAMMAR.source_revision == "native-source-model-v1"
-    assert [(node.kind, node.named) for node in CPP_GRAMMAR.roots] == [
-        ("translation_unit", True)
-    ]
+    assert [(node.kind, node.named) for node in CPP_GRAMMAR.roots] == [("translation_unit", True)]
 
 
 def test_expression_schema_covers_modern_cpp_expression_forms() -> None:
@@ -46,9 +44,7 @@ def test_document_can_classify_nodes_through_grammar_schema() -> None:
     """解析出来的节点仍可通过自有 grammar subtype 图分类。"""
     from xr_source.cpp import CppDocument
 
-    document = CppDocument.parse(
-        "void f() { if (ready) { target(a + b); } }"
-    )
+    document = CppDocument.parse("void f() { if (ready) { target(a + b); } }")
     binary = document.nodes("binary_expression")[0]
     call = document.nodes("call_expression")[0]
     compound = document.nodes("compound_statement")[0]

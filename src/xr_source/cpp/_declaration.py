@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from xr_source.core import GreenNode, GreenToken
 
-from .lexer import _CONTROL, _STORAGE, _TYPE_WORDS
 from ._ranges import _Replacement
+from .lexer import _CONTROL, _STORAGE, _TYPE_WORDS
+
 
 class _DeclarationMixin:
     """解析一个 source unit 中的函数声明/定义、参数与变量声明。"""
+
     def _parse_unit(self, start: int, end: int, *, context: str) -> _Replacement | None:
         """把一个完整声明/语句区间分类成具体结构节点。"""
         significant = self._significant(start, end)
@@ -35,7 +37,9 @@ class _DeclarationMixin:
             if function is not None:
                 return function
 
-        if context in {"top", "class", "block"} and self._looks_like_declaration(start, end, context=context):
+        if context in {"top", "class", "block"} and self._looks_like_declaration(
+            start, end, context=context
+        ):
             declaration = self._parse_declaration(start, end)
             if declaration is not None:
                 if context == "block":
@@ -80,14 +84,18 @@ class _DeclarationMixin:
             None,
         )
 
-        if body_open is None and not self._prototype_is_function(start, end, open_paren, close_paren, name_start, context):
+        if body_open is None and not self._prototype_is_function(
+            start, end, open_paren, close_paren, name_start, context
+        ):
             return None
 
         parameters = self._parse_parameter_list(open_paren, close_paren)
         name_element = self._name_element(name_start, name_end)
         declarator_end = close_paren + 1
         while True:
-            next_index = self._next_significant(declarator_end, body_open if body_open is not None else end)
+            next_index = self._next_significant(
+                declarator_end, body_open if body_open is not None else end
+            )
             if next_index is None:
                 break
             text = self.lexemes[next_index].text
@@ -150,7 +158,11 @@ class _DeclarationMixin:
         name = self._find_parameter_name(start, declarator_end)
         replacements: list[_Replacement] = []
         if name is not None:
-            name_kind = "type_identifier" if template and self.lexemes[name].text not in _TYPE_WORDS else "identifier"
+            name_kind = (
+                "type_identifier"
+                if template and self.lexemes[name].text not in _TYPE_WORDS
+                else "identifier"
+            )
             replacements.append(
                 _Replacement(
                     name,
@@ -163,20 +175,32 @@ class _DeclarationMixin:
             value_start = self._next_significant(equal + 1, end)
             if value_start is not None:
                 value = self._parse_expression(value_start, end)
-                field = "default_type" if template and significant and self.lexemes[significant[0]].text in {"typename", "class"} else "default_value"
+                field = (
+                    "default_type"
+                    if template
+                    and significant
+                    and self.lexemes[significant[0]].text in {"typename", "class"}
+                    else "default_value"
+                )
                 replacements.append(_Replacement(value_start, end, value, field))
 
         first = self.lexemes[significant[0]].text if significant else ""
         if template:
             optional = equal is not None
             if first in {"typename", "class"}:
-                kind = "optional_type_parameter_declaration" if optional else "type_parameter_declaration"
+                kind = (
+                    "optional_type_parameter_declaration"
+                    if optional
+                    else "type_parameter_declaration"
+                )
             elif "..." in (self.lexemes[index].text for index in significant):
                 kind = "variadic_parameter_declaration"
             else:
                 kind = "optional_parameter_declaration" if optional else "parameter_declaration"
         else:
-            kind = "optional_parameter_declaration" if equal is not None else "parameter_declaration"
+            kind = (
+                "optional_parameter_declaration" if equal is not None else "parameter_declaration"
+            )
         return self._compose(kind, start, end, replacements)
 
     def _parse_declaration(self, start: int, end: int) -> _Replacement | None:
@@ -211,7 +235,11 @@ class _DeclarationMixin:
             value_start = self._next_significant(equal + 1, content_end)
         else:
             next_after_name = self._next_significant(name + 1, content_end)
-            if next_after_name is not None and self.lexemes[next_after_name].text in {"(", "{"} and next_after_name in self._pairs:
+            if (
+                next_after_name is not None
+                and self.lexemes[next_after_name].text in {"(", "{"}
+                and next_after_name in self._pairs
+            ):
                 close = self._pairs[next_after_name]
                 if close < content_end:
                     value_start = next_after_name

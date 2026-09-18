@@ -6,18 +6,25 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Sequence
+from collections.abc import Iterable, Sequence
 
 from xr_source.core import (
-    Diagnostic, GreenNode, GreenToken, ParserKindInfo, ParserSchema, SyntaxTree, decode_source,
+    Diagnostic,
+    GreenNode,
+    GreenToken,
+    ParserKindInfo,
+    ParserSchema,
+    SyntaxTree,
+    decode_source,
 )
 
-from .grammar import CPP_GRAMMAR
-from .lexer import _PUNCTUATORS, _QUALIFIERS, _STORAGE, _TYPE_WORDS, _Lexeme, _Lexer
-from ._ranges import _RangeMixin, _Replacement, _deduplicate_replacements
+from ._declaration import _DeclarationMixin
 from ._declarator import _DeclaratorMixin
 from ._expression import _ExpressionMixin
-from ._declaration import _DeclarationMixin
+from ._ranges import _deduplicate_replacements, _RangeMixin, _Replacement
+from .grammar import CPP_GRAMMAR
+from .lexer import _PUNCTUATORS, _QUALIFIERS, _STORAGE, _TYPE_WORDS, _Lexeme, _Lexer
+
 
 class CppParser:
     """不依赖第三方 parser runtime 的 lossless C++ source parser。"""
@@ -26,9 +33,7 @@ class CppParser:
 
     def __init__(self) -> None:
         """初始化 parser，并构造稳定的运行时 kind/field 表。"""
-        refs: set[tuple[str, bool]] = {
-            (node.kind, node.named) for node in self.grammar.nodes
-        }
+        refs: set[tuple[str, bool]] = {(node.kind, node.named) for node in self.grammar.nodes}
         for node in self.grammar.nodes:
             refs.update((item.kind, item.named) for item in node.subtypes)
             if node.children is not None:
@@ -39,17 +44,12 @@ class CppParser:
         refs.update((word, False) for word in _TYPE_WORDS | _STORAGE | _QUALIFIERS)
         ordered = sorted(refs, key=lambda item: (item[0], item[1]))
         fields = sorted(
-            {
-                field_name
-                for node in self.grammar.nodes
-                for field_name, _ in node.fields
-            }
+            {field_name for node in self.grammar.nodes for field_name, _ in node.fields}
         )
         self._schema = ParserSchema(
             "cpp",
             tuple(
-                ParserKindInfo(index, name, named)
-                for index, (name, named) in enumerate(ordered)
+                ParserKindInfo(index, name, named) for index, (name, named) in enumerate(ordered)
             ),
             tuple(fields),
         )
@@ -73,10 +73,7 @@ class CppParser:
         return tree
 
 
-
-class _StructuralParser(
-    _DeclarationMixin, _ExpressionMixin, _DeclaratorMixin, _RangeMixin
-):
+class _StructuralParser(_DeclarationMixin, _ExpressionMixin, _DeclaratorMixin, _RangeMixin):
     def __init__(self, lexemes: Sequence[_Lexeme], diagnostics: Iterable[Diagnostic]) -> None:
         """保存词法结果并建立括号配对表。"""
         self.lexemes = tuple(lexemes)
@@ -150,7 +147,11 @@ class _StructuralParser(
                     cursor = replacement.end
                     continue
 
-            if context == "class" and self.lexemes[current].text in {"public", "private", "protected"}:
+            if context == "class" and self.lexemes[current].text in {
+                "public",
+                "private",
+                "protected",
+            }:
                 colon = self._next_significant(current + 1, end)
                 if colon is not None and self.lexemes[colon].text == ":":
                     node = self._compose("access_specifier", current, colon + 1, [])
@@ -210,9 +211,7 @@ class _StructuralParser(
                     )
             else:
                 token = self.lexemes[path_start]
-                replacements.append(
-                    _Replacement(path_start, path_start + 1, token.green(), "path")
-                )
+                replacements.append(_Replacement(path_start, path_start + 1, token.green(), "path"))
 
         node = self._compose(kind, start, line_end, replacements)
         return _Replacement(start, line_end, node)
@@ -323,9 +322,11 @@ class _StructuralParser(
         replacements = self._parse_scope(open_brace + 1, close_brace, context="top")
         body = self._compose("declaration_list", open_brace, close_brace + 1, replacements)
         nested: list[_Replacement] = [_Replacement(open_brace, close_brace + 1, body, "body")]
-        name = next((i for i in significant if i < open_brace and self.lexemes[i].kind == "identifier"), None)
+        name = next(
+            (i for i in significant if i < open_brace and self.lexemes[i].kind == "identifier"),
+            None,
+        )
         if name is not None:
             nested.append(_Replacement(name, name + 1, self.lexemes[name].green(), "name"))
         node = self._compose("namespace_definition", start, close_brace + 1, nested)
         return _Replacement(start, close_brace + 1, node)
-

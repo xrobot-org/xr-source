@@ -19,7 +19,9 @@ def _ref(kind: str, named: bool = True) -> GrammarTypeRef:
     return GrammarTypeRef(kind, named)
 
 
-def _slot(*kinds: str, multiple: bool = False, required: bool = False, named: bool = True) -> GrammarSlot:
+def _slot(
+    *kinds: str, multiple: bool = False, required: bool = False, named: bool = True
+) -> GrammarSlot:
     """创建只包含同一 named 属性的一组 grammar slot 候选。"""
     return GrammarSlot(multiple, required, tuple(_ref(kind, named) for kind in kinds))
 
@@ -100,73 +102,84 @@ _NODES = (
     _node(
         "translation_unit",
         root=True,
-        children=_slot(*_DECLARATION_KINDS, "preproc_include", "preproc_def", "preproc_if", "preproc_ifdef", "preproc_call", "comment", multiple=True),
+        children=_slot(
+            *_DECLARATION_KINDS,
+            "preproc_include",
+            "preproc_def",
+            "preproc_if",
+            "preproc_ifdef",
+            "preproc_call",
+            "comment",
+            multiple=True,
+        ),
     ),
     _node("expression", subtypes=tuple(_ref(kind) for kind in _EXPRESSION_KINDS)),
     _node("statement", subtypes=tuple(_ref(kind) for kind in _STATEMENT_KINDS)),
     _node("declaration_item", subtypes=tuple(_ref(kind) for kind in _DECLARATION_KINDS)),
-    *(_node(kind) for kind in (
-        "identifier",
-        "type_identifier",
-        "field_identifier",
-        "number_literal",
-        "string_literal",
-        "char_literal",
-        "raw_string_literal",
-        "true",
-        "false",
-        "nullptr",
-        "source_expression",
-        "qualified_identifier",
-        "parenthesized_expression",
-        "unary_expression",
-        "conditional_expression",
-        "field_expression",
-        "subscript_expression",
-        "lambda_expression",
-        "requires_expression",
-        "fold_expression",
-        "new_expression",
-        "delete_expression",
-      "co_await_expression",
-        "cast_expression",
-        "initializer_list",
-        "user_defined_literal",
-        "expression_statement",
-        "declaration_statement",
-        "return_statement",
-        "if_statement",
-        "for_statement",
-      "while_statement",
-        "do_statement",
-        "switch_statement",
-        "break_statement",
-        "continue_statement",
-        "try_statement",
-        "enum_specifier",
-        "concept_definition",
-        "alias_declaration",
-        "using_declaration",
-        "type_descriptor",
-        "pointer_declarator",
-      "reference_declarator",
-      "array_declarator",
-        "parenthesized_declarator",
-        "destructor_name",
-        "operator_name",
-        "default_method_clause",
-      "delete_method_clause",
-      "preproc_def",
-      "preproc_if",
-        "preproc_ifdef",
-      "preproc_call",
-        "comment",
-        "storage_class_specifier",
-        "type_qualifier",
-      "system_lib_string",
-      "access_specifier",
-    )),
-
+    *(
+        _node(kind)
+        for kind in (
+            "identifier",
+            "type_identifier",
+            "field_identifier",
+            "number_literal",
+            "string_literal",
+            "char_literal",
+            "raw_string_literal",
+            "true",
+            "false",
+            "nullptr",
+            "source_expression",
+            "qualified_identifier",
+            "parenthesized_expression",
+            "unary_expression",
+            "conditional_expression",
+            "field_expression",
+            "subscript_expression",
+            "lambda_expression",
+            "requires_expression",
+            "fold_expression",
+            "new_expression",
+            "delete_expression",
+            "co_await_expression",
+            "cast_expression",
+            "initializer_list",
+            "user_defined_literal",
+            "expression_statement",
+            "declaration_statement",
+            "return_statement",
+            "if_statement",
+            "for_statement",
+            "while_statement",
+            "do_statement",
+            "switch_statement",
+            "break_statement",
+            "continue_statement",
+            "try_statement",
+            "enum_specifier",
+            "concept_definition",
+            "alias_declaration",
+            "using_declaration",
+            "type_descriptor",
+            "pointer_declarator",
+            "reference_declarator",
+            "array_declarator",
+            "parenthesized_declarator",
+            "destructor_name",
+            "operator_name",
+            "default_method_clause",
+            "delete_method_clause",
+            "preproc_def",
+            "preproc_if",
+            "preproc_ifdef",
+            "preproc_call",
+            "comment",
+            "storage_class_specifier",
+            "type_qualifier",
+            "system_lib_string",
+            "access_specifier",
+        )
+    ),
     _node(
         "compound_statement",
         fields=(("body", _slot(*_STATEMENT_KINDS, multiple=True)),),
@@ -176,9 +189,40 @@ _NODES = (
         "binary_expression",
         fields=(
             ("left", _slot(*_EXPRESSION_KINDS, required=True)),
-            ("operator", GrammarSlot(False, True, tuple(_ref(item, False) for item in (
-                "+", "-", "*", "/", "%", "<<", ">>", "<", "<=", ">", ">=", "==", "!=", "<=>", "&", "^", "|", "&&", "||", "and", "or", "xor"
-            )))),
+            (
+                "operator",
+                GrammarSlot(
+                    False,
+                    True,
+                    tuple(
+                        _ref(item, False)
+                        for item in (
+                            "+",
+                            "-",
+                            "*",
+                            "/",
+                            "%",
+                            "<<",
+                            ">>",
+                            "<",
+                            "<=",
+                            ">",
+                            ">=",
+                            "==",
+                            "!=",
+                            "<=>",
+                            "&",
+                            "^",
+                            "|",
+                            "&&",
+                            "||",
+                            "and",
+                            "or",
+                            "xor",
+                        )
+                    ),
+                ),
+            ),
             ("right", _slot(*_EXPRESSION_KINDS, required=True)),
         ),
     ),
@@ -186,7 +230,29 @@ _NODES = (
         "assignment_expression",
         fields=(
             ("left", _slot(*_EXPRESSION_KINDS, required=True)),
-            ("operator", GrammarSlot(False, True, tuple(_ref(item, False) for item in ("=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=")))),
+            (
+                "operator",
+                GrammarSlot(
+                    False,
+                    True,
+                    tuple(
+                        _ref(item, False)
+                        for item in (
+                            "=",
+                            "+=",
+                            "-=",
+                            "*=",
+                            "/=",
+                            "%=",
+                            "&=",
+                            "|=",
+                            "^=",
+                            "<<=",
+                            ">>=",
+                        )
+                    ),
+                ),
+            ),
             ("right", _slot(*_EXPRESSION_KINDS, required=True)),
         ),
     ),
@@ -204,7 +270,7 @@ _NODES = (
             ("type", _slot("type_descriptor")),
             ("declarator", _slot("function_declarator", required=True)),
             ("body", _slot("compound_statement", required=True)),
-       ),
+        ),
     ),
     _node(
         "function_declarator",
@@ -213,7 +279,10 @@ _NODES = (
             ("parameters", _slot("parameter_list", required=True)),
         ),
     ),
-    _node("parameter_list", children=_slot("parameter_declaration", "optional_parameter_declaration", multiple=True)),
+    _node(
+        "parameter_list",
+        children=_slot("parameter_declaration", "optional_parameter_declaration", multiple=True),
+    ),
     _node(
         "parameter_declaration",
         fields=(
@@ -240,17 +309,39 @@ _NODES = (
         fields=(
             ("declarator", _slot("identifier", "type_identifier", required=True)),
             ("value", _slot(*_EXPRESSION_KINDS)),
-       ),
+        ),
     ),
     _node(
         "template_declaration",
         fields=(("parameters", _slot("template_parameter_list", required=True)),),
         children=_slot(*_DECLARATION_KINDS, multiple=True),
     ),
-    _node("template_parameter_list", children=_slot("type_parameter_declaration", "optional_type_parameter_declaration", "parameter_declaration", "optional_parameter_declaration", "variadic_parameter_declaration", multiple=True)),
-    _node("type_parameter_declaration", fields=(("declarator", _slot("type_identifier", "identifier")),)),
-    _node("optional_type_parameter_declaration", fields=(("declarator", _slot("type_identifier", "identifier")), ("default_type", _slot(*_EXPRESSION_KINDS)))),
-    _node("variadic_parameter_declaration", fields=(("declarator", _slot("type_identifier", "identifier")),)),
+    _node(
+        "template_parameter_list",
+        children=_slot(
+            "type_parameter_declaration",
+            "optional_type_parameter_declaration",
+            "parameter_declaration",
+            "optional_parameter_declaration",
+            "variadic_parameter_declaration",
+            multiple=True,
+        ),
+    ),
+    _node(
+        "type_parameter_declaration",
+        fields=(("declarator", _slot("type_identifier", "identifier")),),
+    ),
+    _node(
+        "optional_type_parameter_declaration",
+        fields=(
+            ("declarator", _slot("type_identifier", "identifier")),
+            ("default_type", _slot(*_EXPRESSION_KINDS)),
+        ),
+    ),
+    _node(
+        "variadic_parameter_declaration",
+        fields=(("declarator", _slot("type_identifier", "identifier")),),
+    ),
     *(
         _node(
             kind,
@@ -261,16 +352,34 @@ _NODES = (
         )
         for kind in ("class_specifier", "struct_specifier", "union_specifier")
     ),
-    _node("field_declaration_list", children=_slot("access_specifier", "declaration", "function_definition", "template_declaration", "class_specifier", "struct_specifier", "union_specifier", "comment", multiple=True)),
-    _node("namespace_definition", fields=(("name", _slot("identifier")), ("body", _slot("declaration_list", required=True)))),
+    _node(
+        "field_declaration_list",
+        children=_slot(
+            "access_specifier",
+            "declaration",
+            "function_definition",
+            "template_declaration",
+            "class_specifier",
+            "struct_specifier",
+            "union_specifier",
+            "comment",
+            multiple=True,
+        ),
+    ),
+    _node(
+        "namespace_definition",
+        fields=(("name", _slot("identifier")), ("body", _slot("declaration_list", required=True))),
+    ),
     _node("declaration_list", children=_slot(*_DECLARATION_KINDS, "comment", multiple=True)),
-    _node("preproc_include", fields=(("path", _slot("string_literal", "system_lib_string", required=True)),)),
+    _node(
+        "preproc_include",
+        fields=(("path", _slot("string_literal", "system_lib_string", required=True)),),
+    ),
 )
 
 # Grammar identity 基于本文件内置合同，而不是第三方 grammar revision。
 _SCHEMA_FINGERPRINT = "\n".join(
-    "{}:{}:{}".format(node.kind, int(node.named), ",".join(node.field_names))
-    for node in _NODES
+    "{}:{}:{}".format(node.kind, int(node.named), ",".join(node.field_names)) for node in _NODES
 ).encode("utf-8")
 NODE_TYPES_SHA256 = hashlib.sha256(_SCHEMA_FINGERPRINT).hexdigest()
 

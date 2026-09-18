@@ -149,7 +149,6 @@ _BINARY_PRECEDENCE = {
 }
 
 
-
 @dataclass(frozen=True, slots=True)
 class _Lexeme:
     """保存一个不可再分的源码片段及其字节位置。"""
@@ -166,7 +165,6 @@ class _Lexeme:
         if self.trivia:
             return GreenTrivia(self.kind, self.text)
         return GreenToken(self.kind, self.text, named=self.named)
-
 
 
 class _Lexer:
@@ -195,7 +193,11 @@ class _Lexer:
             if char in "\r\n":
                 # 行结束必须独立成 lexeme。预处理指令需要拥有“本行”的换行，
                 # 但不能把下一空行一起吞掉；CRLF 作为一个逻辑换行整体保留。
-                if char == "\r" and self.index + 1 < self.length and self.text[self.index + 1] == "\n":
+                if (
+                    char == "\r"
+                    and self.index + 1 < self.length
+                    and self.text[self.index + 1] == "\n"
+                ):
                     self.index += 2
                 else:
                     self.index += 1
@@ -247,7 +249,9 @@ class _Lexer:
                     result.append(self._emit("identifier", start, self.index, named=True))
                 continue
 
-            if char.isdigit() or (char == "." and self.index + 1 < self.length and self.text[self.index + 1].isdigit()):
+            if char.isdigit() or (
+                char == "." and self.index + 1 < self.length and self.text[self.index + 1].isdigit()
+            ):
                 result.append(self._scan_number(start))
                 continue
 
@@ -267,12 +271,28 @@ class _Lexer:
 
     def _scan_string_or_char(self, start: int) -> _Lexeme | None:
         """识别普通/宽字符/UTF/原始字符串字面量。"""
-        prefixes = ("u8R\"", "uR\"", "UR\"", "LR\"", "R\"", "u8\"", "u\"", "U\"", "L\"", "\"", "u8'", "u'", "U'", "L'", "'")
+        prefixes = (
+            'u8R"',
+            'uR"',
+            'UR"',
+            'LR"',
+            'R"',
+            'u8"',
+            'u"',
+            'U"',
+            'L"',
+            '"',
+            "u8'",
+            "u'",
+            "U'",
+            "L'",
+            "'",
+        )
         prefix = next((item for item in prefixes if self.text.startswith(item, start)), None)
         if prefix is None:
             return None
 
-        raw = "R\"" in prefix
+        raw = 'R"' in prefix
         quote = "'" if prefix.endswith("'") else '"'
         self.index = start + len(prefix)
         kind = "char_literal" if quote == "'" else "string_literal"
@@ -346,14 +366,15 @@ class _Lexer:
         """生成带准确字节区间的 lexeme，并推进累计字节位置。"""
         fragment = self.text[start:end]
         encoded = fragment.encode("utf-8", errors="surrogateescape")
-        item = _Lexeme(kind, fragment, self.byte_offset, self.byte_offset + len(encoded), named, trivia)
+        item = _Lexeme(
+            kind, fragment, self.byte_offset, self.byte_offset + len(encoded), named, trivia
+        )
         self.byte_offset += len(encoded)
         return item
 
     def _diagnostic(self, message: str, start: int, end: int) -> None:
         """记录 lexer 发现的源级错误。"""
         self.diagnostics.append(Diagnostic(message, SourceSpan(start, end)))
-
 
 
 def _identifier_start(char: str) -> bool:
@@ -364,4 +385,3 @@ def _identifier_start(char: str) -> bool:
 def _identifier_continue(char: str) -> bool:
     """判断字符是否可继续出现在保守 C++ identifier 中。"""
     return char == "_" or char.isalnum() or ord(char) >= 128
-

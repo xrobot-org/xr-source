@@ -38,7 +38,7 @@ auto fold(T... xs) {
 
 def test_utf8_bom_is_source_trivia_not_lost() -> None:
     """BOM 是源码字节的一部分，不能在 parser 层消失。"""
-    source = b'\xef\xbb\xbf#pragma once\r\n'
+    source = b"\xef\xbb\xbf#pragma once\r\n"
     document = CppDocument.parse(source)
     assert document.render_bytes() == source
 

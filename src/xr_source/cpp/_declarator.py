@@ -4,12 +4,16 @@ from __future__ import annotations
 
 from xr_source.core import GreenChild, GreenElement, GreenNode, GreenToken
 
-from .lexer import _CONTROL, _LITERAL_KINDS, _QUALIFIERS, _STORAGE, _TYPE_WORDS
 from ._ranges import _Replacement
+from .lexer import _CONTROL, _LITERAL_KINDS, _QUALIFIERS, _STORAGE, _TYPE_WORDS
+
 
 class _DeclaratorMixin:
     """提供函数、参数、变量名称与声明形态的 source-level 判定。"""
-    def _find_function_parameter_list(self, start: int, end: int) -> tuple[int, int, int, int] | None:
+
+    def _find_function_parameter_list(
+        self, start: int, end: int
+    ) -> tuple[int, int, int, int] | None:
         """找到声明中的主 function parameter list 及函数名区间。"""
         significant = self._significant(start, end)
         for position, index in enumerate(significant):
@@ -23,7 +27,13 @@ class _DeclaratorMixin:
             if name_start is None:
                 continue
             name_text = self._text(name_start, name_end).strip()
-            if name_text in _CONTROL or name_text in {"sizeof", "alignof", "decltype", "noexcept", "requires"}:
+            if name_text in _CONTROL or name_text in {
+                "sizeof",
+                "alignof",
+                "decltype",
+                "noexcept",
+                "requires",
+            }:
                 continue
             return index, close, name_start, name_end
         return None
@@ -133,7 +143,10 @@ class _DeclaratorMixin:
                 continue
             if angle_depth:
                 continue
-            if self.lexemes[index].kind == "identifier" and self.lexemes[index].text not in _TYPE_WORDS:
+            if (
+                self.lexemes[index].kind == "identifier"
+                and self.lexemes[index].text not in _TYPE_WORDS
+            ):
                 before = self._previous_significant(index - 1, start)
                 after = self._next_significant(index + 1, end)
                 if before is not None and self.lexemes[before].text == "::":
@@ -161,7 +174,11 @@ class _DeclaratorMixin:
         else:
             # direct-init/list-init 的第一个顶层括号属于 initializer，名字一定在它之前。
             for index in self._significant(start, end):
-                if self.lexemes[index].text in {"(", "{"} and index in self._pairs and self._pairs[index] < end:
+                if (
+                    self.lexemes[index].text in {"(", "{"}
+                    and index in self._pairs
+                    and self._pairs[index] < end
+                ):
                     search_end = index
                     break
         significant = self._significant(start, search_end)
@@ -182,8 +199,7 @@ class _DeclaratorMixin:
         if (
             len(candidates) < 2
             and significant
-            and self.lexemes[significant[0]].text
-            not in (_TYPE_WORDS | _STORAGE | _QUALIFIERS)
+            and self.lexemes[significant[0]].text not in (_TYPE_WORDS | _STORAGE | _QUALIFIERS)
         ):
             return None
         for index in reversed(candidates):
@@ -204,7 +220,13 @@ class _DeclaratorMixin:
             return False
         first_index = significant[0]
         first = self.lexemes[first_index].text
-        if first in _STORAGE | _QUALIFIERS | _TYPE_WORDS | {"constexpr", "consteval", "constinit", "using", "typedef"}:
+        if first in _STORAGE | _QUALIFIERS | _TYPE_WORDS | {
+            "constexpr",
+            "consteval",
+            "constinit",
+            "using",
+            "typedef",
+        }:
             return True
 
         content_end = self._before_trailing_semicolon(start, end)
@@ -216,7 +238,23 @@ class _DeclaratorMixin:
         # punctuator 保留给 declarator。
         for index in self._significant(first_index + 1, name):
             text = self.lexemes[index].text
-            if text in {"+", "-", "/", "%", "^", "|", "||", "and", "or", "xor", "?", "=", "==", "!=", "<=>"}:
+            if text in {
+                "+",
+                "-",
+                "/",
+                "%",
+                "^",
+                "|",
+                "||",
+                "and",
+                "or",
+                "xor",
+                "?",
+                "=",
+                "==",
+                "!=",
+                "<=>",
+            }:
                 return False
 
         if context in {"top", "class"}:
@@ -253,7 +291,15 @@ class _DeclaratorMixin:
         first = self._next_significant(start, name_start)
         if first is None:
             return None
-        while first < name_start and self.lexemes[first].text in _STORAGE | {"inline", "constexpr", "consteval", "extern", "friend", "virtual", "explicit"}:
+        while first < name_start and self.lexemes[first].text in _STORAGE | {
+            "inline",
+            "constexpr",
+            "consteval",
+            "extern",
+            "friend",
+            "virtual",
+            "explicit",
+        }:
             next_index = self._next_significant(first + 1, name_start)
             if next_index is None:
                 return None
@@ -291,7 +337,10 @@ class _DeclaratorMixin:
         before = self._previous_significant(opening - 1, start)
         if before is None:
             return None
-        if self.lexemes[before].kind == "identifier" or self.lexemes[before].text in {">", ")", "]"}:
+        if self.lexemes[before].kind == "identifier" or self.lexemes[before].text in {
+            ">",
+            ")",
+            "]",
+        }:
             return opening, last
         return None
-

@@ -29,21 +29,15 @@ class _ExpressionMixin:
         """解析 return 语句及返回表达式。"""
         significant = self._significant(start, end)
         semicolon = (
-            significant[-1]
-            if significant and self.lexemes[significant[-1]].text == ";"
-            else end
+            significant[-1] if significant and self.lexemes[significant[-1]].text == ";" else end
         )
         expression_start = (
-            self._next_significant(significant[0] + 1, semicolon)
-            if significant
-            else None
+            self._next_significant(significant[0] + 1, semicolon) if significant else None
         )
         replacements: list[_Replacement] = []
         if expression_start is not None:
             expression = self._parse_expression(expression_start, semicolon)
-            replacements.append(
-                _Replacement(expression_start, semicolon, expression)
-            )
+            replacements.append(_Replacement(expression_start, semicolon, expression))
         node = self._compose("return_statement", start, end, replacements)
         return _Replacement(start, end, node)
 
@@ -56,11 +50,7 @@ class _ExpressionMixin:
         """解析 if/for/while/switch/catch 的条件和复合 body。"""
         significant = self._significant(start, end)
         open_paren = next(
-            (
-                index
-                for index in significant[1:]
-                if self.lexemes[index].text == "("
-            ),
+            (index for index in significant[1:] if self.lexemes[index].text == "("),
             None,
         )
         replacements: list[_Replacement] = []
@@ -176,8 +166,7 @@ class _ExpressionMixin:
                 (
                     index
                     for index in significant
-                    if self.lexemes[index].text == "{"
-                    and index in self._pairs
+                    if self.lexemes[index].text == "{" and index in self._pairs
                 ),
                 None,
             )
@@ -203,8 +192,7 @@ class _ExpressionMixin:
                 (
                     index
                     for index in significant
-                    if self.lexemes[index].text == "{"
-                    and index in self._pairs
+                    if self.lexemes[index].text == "{" and index in self._pairs
                 ),
                 None,
             )
@@ -237,10 +225,7 @@ class _ExpressionMixin:
         if self.lexemes[first].text == "(" and first in self._pairs:
             close = self._pairs[first]
             if close == significant[-1]:
-                if any(
-                    self.lexemes[index].text == "..."
-                    for index in significant
-                ):
+                if any(self.lexemes[index].text == "..." for index in significant):
                     return self._compose(
                         "fold_expression",
                         start,
@@ -251,9 +236,7 @@ class _ExpressionMixin:
                 replacements = []
                 if inner_start is not None:
                     inner = self._parse_expression(inner_start, close)
-                    replacements.append(
-                        _Replacement(inner_start, close, inner)
-                    )
+                    replacements.append(_Replacement(inner_start, close, inner))
                 return self._compose(
                     "parenthesized_expression",
                     start,
@@ -270,15 +253,13 @@ class _ExpressionMixin:
                 right = self._parse_expression(*right_range)
                 operator_text = self.lexemes[operator].text
                 operator_token = GreenToken(operator_text, operator_text)
-                assignment = (
-                    operator_text.endswith("=")
-                    and operator_text not in {"==", "!=", "<=", ">="}
-                )
-                kind = (
-                    "assignment_expression"
-                    if assignment
-                    else "binary_expression"
-                )
+                assignment = operator_text.endswith("=") and operator_text not in {
+                    "==",
+                    "!=",
+                    "<=",
+                    ">=",
+                }
+                kind = "assignment_expression" if assignment else "binary_expression"
                 return self._compose(
                     kind,
                     start,
@@ -358,25 +339,16 @@ class _ExpressionMixin:
         """给调用目标建立轻量结构；不做名称解析。"""
         text = self._text(start, end)
         significant = self._significant(start, end)
-        if (
-            len(significant) == 1
-            and self.lexemes[significant[0]].kind == "identifier"
-        ):
+        if len(significant) == 1 and self.lexemes[significant[0]].kind == "identifier":
             return GreenToken("identifier", text, named=True)
-        if "::" in (
-            self.lexemes[index].text
-            for index in significant
-        ):
+        if "::" in (self.lexemes[index].text for index in significant):
             return self._compose(
                 "qualified_identifier",
                 start,
                 end,
                 [],
             )
-        if any(
-            self.lexemes[index].text in {".", "->"}
-            for index in significant
-        ):
+        if any(self.lexemes[index].text in {".", "->"} for index in significant):
             return self._compose(
                 "field_expression",
                 start,
@@ -430,10 +402,7 @@ class _ExpressionMixin:
         result: list[_Replacement] = []
         significant = self._significant(start, end)
         for position, index in enumerate(significant):
-            if (
-                self.lexemes[index].text != "("
-                or index not in self._pairs
-            ):
+            if self.lexemes[index].text != "(" or index not in self._pairs:
                 continue
             close = self._pairs[index]
             if close >= end or position == 0:
@@ -441,10 +410,7 @@ class _ExpressionMixin:
 
             previous = significant[position - 1]
             previous_text = self.lexemes[previous].text
-            if (
-                self.lexemes[previous].kind != "identifier"
-                and previous_text not in {">", ")", "]"}
-            ):
+            if self.lexemes[previous].kind != "identifier" and previous_text not in {">", ")", "]"}:
                 continue
 
             callee_start = previous
@@ -453,10 +419,7 @@ class _ExpressionMixin:
                     callee_start - 1,
                     start,
                 )
-                if (
-                    before is None
-                    or self.lexemes[before].text not in {"::", ".", "->"}
-                ):
+                if before is None or self.lexemes[before].text not in {"::", ".", "->"}:
                     break
                 owner = self._previous_significant(
                     before - 1,
