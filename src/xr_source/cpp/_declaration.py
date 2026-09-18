@@ -54,12 +54,12 @@ class _DeclarationMixin(_ParserSupport):
                 return declaration
 
         expression_end = self._before_trailing_semicolon(start, end)
-        expression = self._parse_expression(start, expression_end)
+        replacement = self._expression_replacement(start, expression_end)
         node = self._compose(
             "expression_statement",
             start,
             end,
-            [_Replacement(start, expression_end, expression)] if expression_end > start else [],
+            [] if replacement is None else [replacement],
         )
         return _Replacement(start, end, node)
 
@@ -175,7 +175,6 @@ class _DeclarationMixin(_ParserSupport):
         if equal is not None:
             value_start = self._next_significant(equal + 1, end)
             if value_start is not None:
-                value = self._parse_expression(value_start, end)
                 field = (
                     "default_type"
                     if template
@@ -183,7 +182,9 @@ class _DeclarationMixin(_ParserSupport):
                     and self.lexemes[significant[0]].text in {"typename", "class"}
                     else "default_value"
                 )
-                replacements.append(_Replacement(value_start, end, value, field))
+                replacement = self._expression_replacement(value_start, end, field)
+                if replacement is not None:
+                    replacements.append(replacement)
 
         first = self.lexemes[significant[0]].text if significant else ""
         if template:
@@ -251,8 +252,13 @@ class _DeclarationMixin(_ParserSupport):
             _Replacement(name, name + 1, self.lexemes[name].green(), "declarator")
         ]
         if value_start is not None:
-            value = self._parse_expression(value_start, content_end)
-            declarator_replacements.append(_Replacement(value_start, content_end, value, "value"))
+            replacement = self._expression_replacement(
+                value_start,
+                content_end,
+                "value",
+            )
+            if replacement is not None:
+                declarator_replacements.append(replacement)
         declarator = self._compose(
             "init_declarator",
             declarator_start,

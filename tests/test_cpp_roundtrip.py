@@ -30,3 +30,19 @@ def test_incomplete_source_is_still_lossless() -> None:
     document = CppDocument.parse(source)
     assert document.render_bytes() == source
     assert document.diagnostics
+
+
+def test_expression_replacements_preserve_edge_trivia() -> None:
+    source = (
+        b"bool f(bool ready) {\n"
+        b"  return ready\n"
+        b"#if defined(EXTRA)\n"
+        b"         && extra\n"
+        b"#endif\n"
+        b"      ;\n"
+        b"}\n"
+        b"enum { Options = Options_ };\n"
+        b"void g() { int value = 1 ; target((value   )); }\n"
+    )
+    document = CppDocument.parse(source)
+    assert document.render_bytes() == source

@@ -12,6 +12,23 @@ from .lexer import _LITERAL_KINDS
 class _ExpressionMixin(_ParserSupport):
     """解析 compound statement、控制流、调用和常见表达式结构。"""
 
+    def _expression_replacement(
+        self,
+        start: int,
+        end: int,
+        field: str | None = None,
+    ) -> _Replacement | None:
+        """构造与 expression 实际覆盖范围严格一致的 replacement。
+
+        _parse_expression() 会去掉区间两端的 trivia/comment，因此 replacement
+        也必须使用相同的 trimmed span；否则被排除的空白会被错误吞掉。
+        """
+        trimmed = self._trim(start, end)
+        if trimmed is None:
+            return None
+        expression = self._parse_expression(*trimmed)
+        return _Replacement(trimmed[0], trimmed[1], expression, field)
+
     def _parse_compound(self, open_brace: int, close_brace: int) -> GreenNode:
         """解析函数/控制流复合语句，并递归结构化内部声明与调用。"""
         replacements = self._parse_scope(
@@ -37,8 +54,9 @@ class _ExpressionMixin(_ParserSupport):
         )
         replacements: list[_Replacement] = []
         if expression_start is not None:
-            expression = self._parse_expression(expression_start, semicolon)
-            replacements.append(_Replacement(expression_start, semicolon, expression))
+            replacement = self._expression_replacement(expression_start, semicolon)
+            if replacement is not None:
+                replacements.append(replacement)
         node = self._compose("return_statement", start, end, replacements)
         return _Replacement(start, end, node)
 
@@ -64,18 +82,13 @@ class _ExpressionMixin(_ParserSupport):
                     close_paren,
                 )
                 if condition_start is not None:
-                    condition = self._parse_expression(
+                    replacement = self._expression_replacement(
                         condition_start,
                         close_paren,
+                        "condition",
                     )
-                    replacements.append(
-                        _Replacement(
-                            condition_start,
-                            close_paren,
-                            condition,
-                            "condition",
-                        )
-                    )
+                    if replacement is not None:
+                        replacements.append(replacement)
                 cursor = close_paren + 1
 
         body_open = self._next_significant(cursor, end)
@@ -136,15 +149,13 @@ class _ExpressionMixin(_ParserSupport):
             value_end = self._before_trailing_semicolon(start, end)
             value_start = self._next_significant(equal + 1, value_end)
             if value_start is not None:
-                expression = self._parse_expression(value_start, value_end)
-                replacements.append(
-                    _Replacement(
-                        value_start,
-                        value_end,
-                        expression,
-                        "value",
-                    )
+                replacement = self._expression_replacement(
+                    value_start,
+                    value_end,
+                    "value",
                 )
+                if replacement is not None:
+                    replacements.append(replacement)
         node = self._compose("concept_definition", start, end, replacements)
         return _Replacement(start, end, node)
 
@@ -236,8 +247,9 @@ class _ExpressionMixin(_ParserSupport):
                 inner_start = self._next_significant(first + 1, close)
                 replacements = []
                 if inner_start is not None:
-                    inner = self._parse_expression(inner_start, close)
-                    replacements.append(_Replacement(inner_start, close, inner))
+                    replacement = self._expression_replacement(inner_start, close)
+                    if replacement is not None:
+                        replacements.append(replacement)
                 return self._compose(
                     "parenthesized_expression",
                     start,

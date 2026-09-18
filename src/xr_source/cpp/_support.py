@@ -108,6 +108,15 @@ class _ParserSupport:
         """解析表达式结构。"""
         raise NotImplementedError
 
+    def _expression_replacement(
+        self,
+        start: int,
+        end: int,
+        field: str | None = None,
+    ) -> _Replacement | None:
+        """构造不吞掉 expression 两端 trivia 的 replacement。"""
+        raise NotImplementedError
+
     def _parse_compound(self, open_brace: int, close_brace: int) -> GreenNode:
         """解析复合语句。"""
         raise NotImplementedError
