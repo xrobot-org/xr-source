@@ -1,8 +1,7 @@
 """验证 C++ 常用结构查询和 User Code 区域识别。
-
 Test common C++ structure queries and User Code region detection.
 """
-from xr_source.cpp import CppDocument
+from xr_syntax.cpp import CppDocument
 
 SOURCE = """
 #include "foo.hpp"
@@ -24,7 +23,6 @@ extern "C" void app_main(void) {
 
 def test_common_queries() -> None:
     """验证 CppDocument 的常用函数、调用和声明查询。
-
     Verify the common CppDocument queries for functions, calls, and declarations.
     """
     document = CppDocument.parse(SOURCE)
@@ -37,7 +35,6 @@ def test_common_queries() -> None:
 
 def test_user_region() -> None:
     """验证 User Code 区域的名称、body 和边界识别。
-
     Verify User Code region names, bodies, and boundary detection.
     """
     document = CppDocument.parse(SOURCE)

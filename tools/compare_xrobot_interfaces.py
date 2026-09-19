@@ -1,7 +1,5 @@
-"""比较 xr-source 与旧 XRobot ModuleParser 对模块构造函数接口的解析结果。
-
-Compare constructor-interface parsing results between xr-source and the legacy XRobot
-ModuleParser.
+"""比较 xr-syntax 与旧 XRobot ModuleParser 对模块构造函数接口的解析结果。
+Compare constructor-interface parsing results between xr-syntax and the legacy XRobot ModuleParser.
 """
 from __future__ import annotations
 
@@ -12,14 +10,12 @@ from pathlib import Path
 
 from xrobot.ModuleParser import source_interface
 
-from xr_source.cpp import CppDocument
+from xr_syntax.cpp import CppDocument
 
 
 def normalized(value: str | None) -> str | None:
     """规范化类型/默认值文本中的空白和常见标点间距，便于接口结果比较。
-
-    Normalize whitespace and common punctuation spacing in type/default text for interface
-    comparison.
+    Normalize whitespace and common punctuation spacing in type/default text for interface comparison.
     """
     if value is None:
         return None
@@ -31,7 +27,6 @@ def normalized(value: str | None) -> str | None:
 
 def main() -> None:
     """解析命令行参数并执行当前工具的完整验证流程。
-
     Parse command-line arguments and execute the complete validation workflow.
     """
     parser = argparse.ArgumentParser()
@@ -92,14 +87,14 @@ def main() -> None:
             constructor_rows: list[dict[str, object]] = []
             constructor_ok = True
             for index, (old, new) in enumerate(
-                zip(legacy_constructors, constructors, strict=False)
+                zip(legacy_constructors, constructors)
             ):
                 old_args = old["arguments"]
                 new_args = new.parameters
                 params = []
                 if len(old_args) != len(new_args):
                     constructor_ok = False
-                for old_arg, new_arg in zip(old_args, new_args, strict=False):
+                for old_arg, new_arg in zip(old_args, new_args):
                     old_tuple = (
                         old_arg["name"],
                         normalized(old_arg["type"]),

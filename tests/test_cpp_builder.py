@@ -1,13 +1,11 @@
 """验证 C++ 文件、函数和代码块构建器覆盖常用生成场景。
-
 Test common C++ file, function, and block generation workflows.
 """
-from xr_source.cpp import CppFileBuilder
+from xr_syntax.cpp import CppFileBuilder
 
 
 def test_source_builder_covers_common_generator_operations() -> None:
     """验证 C++ builder 覆盖常用代码生成操作。
-
     Verify that the C++ builder covers common source-generation operations.
     """
     source = CppFileBuilder()
@@ -43,7 +41,6 @@ def test_source_builder_covers_common_generator_operations() -> None:
 
 def test_header_builder_adds_pragma_once() -> None:
     """验证头文件 builder 会按约定加入 pragma once。
-
     Verify that the header builder emits pragma once as required.
     """
     header = CppFileBuilder(header=True)
@@ -54,7 +51,6 @@ def test_header_builder_adds_pragma_once() -> None:
 
 def test_file_builder_structures_format_and_lint_regions() -> None:
     """验证文件 builder 能生成结构化 format 与 lint 保护区域。
-
     Verify that the file builder creates structured format and lint protection regions.
     """
     source = CppFileBuilder()

@@ -1,5 +1,4 @@
 """批量扫描 CMake 文件并统计 parser 的无损 round-trip 和诊断结果。
-
 Batch-scan CMake files and report lossless parser round-trip and diagnostic results.
 """
 from __future__ import annotations
@@ -11,7 +10,7 @@ import time
 from collections.abc import Iterable
 from pathlib import Path
 
-from xr_source.cmake import CMakeParser
+from xr_syntax.cmake import CMakeParser
 
 SKIP_DIRS = {
     ".git",
@@ -30,9 +29,7 @@ SKIP_DIRS = {
 
 def source_files(roots: Iterable[Path]) -> Iterable[Path]:
     """递归枚举需要参与 round-trip 验证的源码文件，并跳过缓存和构建目录。
-
-    Recursively enumerate source files for round-trip validation while skipping cache and
-    build directories.
+    Recursively enumerate source files for round-trip validation while skipping cache and build directories.
     """
     for root in roots:
         if root.is_file():
@@ -50,7 +47,6 @@ def source_files(roots: Iterable[Path]) -> Iterable[Path]:
 
 def main() -> None:
     """解析命令行参数并执行当前工具的完整验证流程。
-
     Parse command-line arguments and execute the complete validation workflow.
     """
     arguments = argparse.ArgumentParser()

@@ -1,12 +1,10 @@
 """验证 CMake grammar、无损解析、查询、构建和编辑行为。
-
 Test CMake grammar metadata, lossless parsing, queries, builders, and structured edits.
 """
-import pytest
 
-pytest.importorskip("tree_sitter_language_pack")
+from __future__ import annotations
 
-from xr_source.cmake import (
+from xr_syntax.cmake import (
     CMAKE_GRAMMAR,
     CMakeDocument,
     CMakeFactory,
@@ -15,10 +13,9 @@ from xr_source.cmake import (
 )
 
 
-def test_cmake_grammar_schema_matches_packaged_runtime() -> None:
+def test_cmake_grammar_schema_matches_native_runtime() -> None:
     """验证打包的 CMake grammar schema 与实际运行时 parser 保持一致。
-
-    Verify that packaged CMake grammar metadata matches the runtime parser.
+    Verify that packaged CMake grammar metadata matches the native parser.
     """
     assert CMAKE_GRAMMAR.version == "0.7.4"
     assert CMAKE_GRAMMAR.source_revision == (
@@ -50,9 +47,7 @@ def test_cmake_grammar_schema_matches_packaged_runtime() -> None:
 
 def test_empty_cmake_file_is_a_lossless_node() -> None:
     """验证空 CMake 文件仍表示为可无损渲染的根节点。
-
-    Verify that an empty CMake file is still represented by a losslessly renderable root
-    node.
+    Verify that an empty CMake file is still represented by a losslessly renderable root node.
     """
     document = CMakeDocument.parse(b"")
     assert document.render_bytes() == b""
@@ -62,7 +57,6 @@ def test_empty_cmake_file_is_a_lossless_node() -> None:
 
 def test_cmake_roundtrip_and_queries() -> None:
     """验证 CMake 源码逐字节 round-trip 以及常用查询结果。
-
     Verify byte-for-byte CMake round-trip behavior and common query results.
     """
     source = (
@@ -98,7 +92,6 @@ def test_cmake_roundtrip_and_queries() -> None:
 
 def test_cmake_builder_uses_same_syntax_model() -> None:
     """验证 CMake builder 生成结果与 parser 使用同一语法模型。
-
     Verify that CMake builder output uses the same syntax model as parsed source.
     """
     builder = CMakeFileBuilder()
@@ -114,7 +107,6 @@ def test_cmake_builder_uses_same_syntax_model() -> None:
 
 def test_cmake_structured_edit_reparses() -> None:
     """验证 CMake 结构化编辑后会重新解析并刷新语法结构。
-
     Verify that structured CMake edits reparse and refresh syntax structure.
     """
     document = CMakeDocument.parse("project(Old)\n")
