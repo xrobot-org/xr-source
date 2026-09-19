@@ -1,0 +1,47 @@
+name: apply-bilingual-docs
+
+on:
+  push:
+    branches:
+      - feat/source-model-20260918
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Rebuild bilingual documentation
+        run: |
+          cat .github/bilingual-transform/* > /tmp/apply.b64
+          python - <<'PY'
+          import base64
+          import zlib
+          from pathlib import Path
+
+          data = base64.b64decode(Path("/tmp/apply.b64").read_bytes())
+          Path("/tmp/apply_bilingual_docs.py").write_bytes(zlib.decompress(data))
+          PY
+          python /tmp/apply_bilingual_docs.py --root .
+          python tools/check_bilingual_docs.py
+          python -m compileall -q src tests tools
+      - name: Commit bilingual source and documentation
+        run: |
+          # Workflow files are finalized later through the GitHub API because
+          # the Actions token cannot update workflows.
+          git restore --source=HEAD --staged --worktree .github/workflows
+          git rm -r .github/bilingual-transform
+          git rm -f tools/check_chinese_docs.py || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Make documentation and code comments bilingual"
+          git push
