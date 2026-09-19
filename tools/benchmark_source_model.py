@@ -7,7 +7,6 @@ from __future__ import annotations
 import argparse
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Iterable, List
 
 from xr_syntax.cpp import CppDocument, CppFactory
@@ -137,7 +136,7 @@ def main() -> None:
         default=[10_000, 100_000, 1_000_000],
         help="target source sizes in bytes",
     )
-    parser.add_argument("--batch-edits", type=int, default=5)
+    parser.add_argument("--batch-edits", type=int, default=3)
     args = parser.parse_args()
     if args.batch_edits < 1:
         raise SystemExit("--batch-edits must be >= 1")

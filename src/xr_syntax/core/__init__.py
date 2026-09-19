@@ -4,13 +4,13 @@ Core immutable syntax, grammar, span, document, and parser-schema abstractions.
 
 from .diagnostic import Diagnostic
 from .document import SyntaxDocument, SyntaxParserProtocol
+from .fragment import SyntaxFragment
 from .grammar import (
     GrammarNodeSpec,
     GrammarSlot,
     GrammarTypeRef,
     LanguageGrammar,
 )
-from .fragment import SyntaxFragment
 from .green import GreenChild, GreenElement, GreenNode, GreenToken, GreenTrivia
 from .parser_schema import ParserKindInfo, ParserSchema
 from .red import SyntaxElement, SyntaxNode, SyntaxToken, SyntaxTrivia

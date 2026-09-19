@@ -7,8 +7,8 @@ from __future__ import annotations
 from typing import ClassVar, Protocol, TypeVar
 
 from .diagnostic import Diagnostic
-from .grammar import GrammarNodeSpec, LanguageGrammar
 from .fragment import SyntaxFragment
+from .grammar import GrammarNodeSpec, LanguageGrammar
 from .red import SyntaxElement, SyntaxNode, SyntaxToken
 from .tree import SyntaxTree
 

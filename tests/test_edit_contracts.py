@@ -7,9 +7,9 @@ from __future__ import annotations
 import pytest
 
 from xr_syntax.cmake import CMakeDocument, CMakeFactory
+from xr_syntax.core import GreenToken
 from xr_syntax.core.rewriter import SyntaxRewriter
 from xr_syntax.cpp import CppDocument, CppFactory
-from xr_syntax.core import GreenToken
 
 
 def test_same_language_element_from_another_snapshot_is_allowed() -> None:
