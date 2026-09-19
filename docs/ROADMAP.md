@@ -11,8 +11,8 @@
 - 在 XRobot 和 LibXR 的实际生成流程中替换字符串拼接和临时 parser。  
   Replace ad-hoc string assembly and temporary parsers in XRobot and LibXR generation flows.
 
-- 重新跑历史大 corpus 和 XRobot constructor parity。  
-  Rerun the historical large corpus and XRobot constructor-parity checks.
+- 重新跑历史大 C++ corpus；XRobot 官方模块 constructor parity 已完成 28/28（另 1 个模块无 manifest）。  
+  Rerun the historical large C++ corpus; official XRobot constructor parity is complete at 28/28, with one module skipped because it has no manifest.
 
 ## 后续 / Later
 
