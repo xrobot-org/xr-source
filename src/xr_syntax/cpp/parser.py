@@ -281,7 +281,9 @@ class _StructuralParser(_DeclarationMixin, _ExpressionMixin, _DeclaratorMixin, _
         Split a template parameter list into parameter nodes carrying name/default fields.
         """
         replacements: list[_Replacement] = []
-        for part_start, part_end in self._split_top_level(open_angle + 1, close_angle, ","):
+        for part_start, part_end in self._split_top_level(
+            open_angle + 1, close_angle, ",", angle_brackets=True
+        ):
             if self._next_significant(part_start, part_end) is None:
                 continue
             node = self._parse_parameter(part_start, part_end, template=True)

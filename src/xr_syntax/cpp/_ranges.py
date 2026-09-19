@@ -161,13 +161,20 @@ class _RangeMixin(_ParserSupport):
                     result = self._find_unit_end(else_body, end, context="block")
         return result
 
-    def _split_top_level(self, start: int, end: int, separator: str) -> list[tuple[int, int]]:
-        """按不位于 (),[] ,{} 内的分隔符切分连续源码区间。
-        Split a source range on separators that are not nested inside (), [], or {}.
+    def _split_top_level(
+        self,
+        start: int,
+        end: int,
+        separator: str,
+        *,
+        angle_brackets: bool = False,
+    ) -> list[tuple[int, int]]:
+        """按不位于嵌套分隔符内的 separator 切分连续源码区间。
+        Split a source range on separators outside the requested nested delimiters.
         """
         result: list[tuple[int, int]] = []
         part_start = start
-        round_depth = square_depth = brace_depth = 0
+        round_depth = square_depth = brace_depth = angle_depth = 0
         for index in self._significant(start, end):
             text = self.lexemes[index].text
             if text == "(":
@@ -182,7 +189,15 @@ class _RangeMixin(_ParserSupport):
                 brace_depth += 1
             elif text == "}":
                 brace_depth = max(0, brace_depth - 1)
-            elif text == separator and not (round_depth or square_depth or brace_depth):
+            elif angle_brackets and text == "<":
+                angle_depth += 1
+            elif angle_brackets and text == ">" and angle_depth:
+                angle_depth -= 1
+            elif angle_brackets and text == ">>" and angle_depth:
+                angle_depth = max(0, angle_depth - 2)
+            elif text == separator and not (
+                round_depth or square_depth or brace_depth or angle_depth
+            ):
                 result.append((part_start, index))
                 part_start = index + 1
         if part_start <= end:

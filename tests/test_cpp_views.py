@@ -128,3 +128,32 @@ def test_include_and_variable_views_cover_file_and_function_scope() -> None:
     assert variables["ref"].base_type == "auto"
     assert variables["ref"].initializer == "global_value"
     assert not variables["ref"].global_scope
+
+
+def test_constructor_declarations_with_defaults_remain_functions() -> None:
+    """验证只有声明的构造函数即使带默认值也不会被误判为调用表达式。
+    Verify that constructor prototypes with default arguments remain function declarations.
+    """
+    document = CppDocument.parse(
+        "class Foo { public: Foo(int count = 10); Foo(float gain = 1.0f); };"
+    )
+    constructors = document.class_views("Foo")[0].constructors(public_only=True)
+    assert [item.name for item in constructors] == ["Foo", "Foo"]
+    assert [[parameter.name for parameter in item.parameters] for item in constructors] == [
+        ["count"],
+        ["gain"],
+    ]
+    assert [item.parameters[0].default for item in constructors] == ["10", "1.0f"]
+    assert not document.call_views("Foo")
+
+
+def test_template_parameter_defaults_keep_nested_template_commas() -> None:
+    """验证模板默认类型中的嵌套逗号不会切开外层模板参数。
+    Verify that commas in nested template defaults do not split outer template parameters.
+    """
+    document = CppDocument.parse(
+        "template <typename T = std::array<int, 2>, int N = 4> class Foo {};"
+    )
+    parameters = document.class_views("Foo")[0].template_parameters
+    assert [item.name for item in parameters] == ["T", "N"]
+    assert [item.default for item in parameters] == ["std::array<int, 2>", "4"]

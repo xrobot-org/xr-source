@@ -114,7 +114,12 @@ class _DeclaratorMixin(_ParserSupport):
         if not parts:
             return True
         for start, end in parts:
-            significant = self._significant(start, end)
+            # 默认实参属于 parameter initializer，不参与“声明还是实参”的判定。
+            # Default arguments belong to the parameter initializer and do not make a
+            # function prototype look like a call.
+            equal = self._find_top_level_token(start, end, "=")
+            declarator_end = equal if equal is not None else end
+            significant = self._significant(start, declarator_end)
             if not significant:
                 continue
             if any(self.lexemes[index].kind in _LITERAL_KINDS for index in significant):

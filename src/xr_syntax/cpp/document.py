@@ -17,6 +17,7 @@ from xr_syntax.core import (
 )
 
 from .grammar import CPP_GRAMMAR
+from .invocation import CppInvocationView, find_invocations
 from .parser import CppParser
 from .syntax_utils import declaration_name, field_text
 from .view import (
@@ -188,6 +189,17 @@ class CppDocument(SyntaxDocument):
         Wrap matching call expressions in CppCallView.
         """
         return tuple(CppCallView(node) for node in self.calls(name))
+
+    def invocation_views(
+        self,
+        name: str,
+        *,
+        template_angles: bool = False,
+    ) -> tuple[CppInvocationView, ...]:
+        """按词法规则查找 NAME(...)，用于宏等非普通 call-expression 结构。
+        Find lexical NAME(...) invocations for macros and similar source constructs.
+        """
+        return find_invocations(self.tree, name, template_angles=template_angles)
 
     # declaration 视图只按当前 syntax fields 识别变量 declarator。
     # Declaration views classify variable declarators from the current syntax fields.
