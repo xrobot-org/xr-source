@@ -11,6 +11,7 @@ from xr_syntax.core import (
     GreenNode,
     GreenToken,
     GreenTrivia,
+    SourceDraft,
     SyntaxElement,
     SyntaxFragment,
     SyntaxNode,
@@ -39,22 +40,22 @@ class CppFactory:
         """创建 include 指令片段。
         Create one include-directive fragment.
         """
-        delimiters = ("<", ">") if system else ('"', '"')
-        source = f"#include {delimiters[0]}{header}{delimiters[1]}\n"
-        return self._fragment(self._first(source, "preproc_include"))
+        draft = self._include_draft(header, system=system)
+        return self._fragment(self._first_node(draft.source, "preproc_include"))
 
     def comment(self, text: str, *, block: bool = False) -> SyntaxFragment:
         """创建行注释或块注释片段。
         Create one line-comment or block-comment fragment.
         """
-        source = f"/* {text} */" if block else f"// {text}"
-        return self._fragment(self._first(source, "comment"))
+        draft = self._comment_draft(text, block=block)
+        return self._fragment(self._first_element(draft.source, "comment"))
 
     def directive(self, source: str) -> SyntaxFragment:
         """创建预处理指令片段。
         Create and validate one preprocessor-directive fragment.
         """
-        document = CppDocument.parse(source.rstrip() + "\n", parser=self.parser)
+        draft = self._directive_draft(source)
+        document = CppDocument.parse(draft.source, parser=self.parser)
         for child in document.root.syntax_children:
             return self._fragment(child)
         raise ValueError("directive did not produce syntax")
@@ -123,9 +124,9 @@ class CppFactory:
         """解析一个语句片段。
         Parse one statement fragment in a temporary function body.
         """
-        suffix = text if text.rstrip().endswith((";", "}")) else text + ";"
+        draft = self._statement_draft(text)
         document = CppDocument.parse(
-            f"void __xr_stmt() {{ {suffix} }}",
+            f"void __xr_stmt() {{ {draft.source} }}",
             parser=self.parser,
         )
         body = document.nodes("compound_statement")[0]
@@ -137,8 +138,8 @@ class CppFactory:
         """解析一个顶层声明片段。
         Parse one top-level declaration fragment.
         """
-        source = text if text.rstrip().endswith((";", "}")) else text + ";"
-        document = CppDocument.parse(source, parser=self.parser)
+        draft = self._declaration_draft(text)
+        document = CppDocument.parse(draft.source, parser=self.parser)
         for child in document.root.named_children:
             return self._fragment(child)
         raise ValueError("declaration did not produce syntax")
@@ -150,6 +151,94 @@ class CppFactory:
     ) -> SyntaxFragment:
         """通过布局 IR 创建函数调用语句。
         Build a function-call statement through the shared layout IR.
+        """
+        return self.statement(self._call_statement_draft(callee, arguments).source)
+
+    def variable(
+        self,
+        cpp_type: str,
+        name: str,
+        *,
+        initializer: str | None = None,
+        storage: Iterable[str] = (),
+    ) -> SyntaxFragment:
+        """由常用字段创建变量声明片段。
+        Build a variable-declaration fragment from common structured fields.
+        """
+        return self.declaration(
+            self._variable_draft(
+                cpp_type,
+                name,
+                initializer=initializer,
+                storage=storage,
+            ).source
+        )
+
+    def function(
+        self,
+        return_type: str,
+        name: str,
+        *,
+        parameters: Iterable[tuple[str, str]] = (),
+        body: Iterable[str] = (),
+        prefix: Iterable[str] = (),
+    ) -> SyntaxFragment:
+        """由签名和 body 创建函数定义片段。
+        Build a function-definition fragment from a signature and body statements.
+        """
+        draft = self._function_draft(
+            return_type,
+            name,
+            parameters=parameters,
+            body=body,
+            prefix=prefix,
+        )
+        return self._fragment(self._first_node(draft.source, "function_definition"))
+
+    def _include_draft(self, header: str, *, system: bool = False) -> SourceDraft:
+        """生成尚未解析的 include 源码。
+        Build unparsed source for one include directive.
+        """
+        delimiters = ("<", ">") if system else ('"', '"')
+        return SourceDraft(
+            self.language,
+            f"#include {delimiters[0]}{header}{delimiters[1]}\n",
+        )
+
+    def _comment_draft(self, text: str, *, block: bool = False) -> SourceDraft:
+        """生成尚未解析的注释源码。
+        Build unparsed source for one comment.
+        """
+        source = f"/* {text} */" if block else f"// {text}"
+        return SourceDraft(self.language, source)
+
+    def _directive_draft(self, source: str) -> SourceDraft:
+        """生成规范化为单行的预处理指令源码。
+        Build source for one preprocessor directive.
+        """
+        return SourceDraft(self.language, source.rstrip() + "\n")
+
+    def _statement_draft(self, text: str) -> SourceDraft:
+        """生成尚未解析的语句源码。
+        Build unparsed source for one statement.
+        """
+        source = text if text.rstrip().endswith((";", "}")) else text + ";"
+        return SourceDraft(self.language, source)
+
+    def _declaration_draft(self, text: str) -> SourceDraft:
+        """生成尚未解析的声明源码。
+        Build unparsed source for one top-level declaration.
+        """
+        source = text if text.rstrip().endswith((";", "}")) else text + ";"
+        return SourceDraft(self.language, source)
+
+    def _call_statement_draft(
+        self,
+        callee: str,
+        arguments: Iterable[str],
+    ) -> SourceDraft:
+        """通过布局 IR 生成尚未解析的调用语句源码。
+        Render an unparsed call statement through the layout IR.
         """
         document = Group(
             concat(
@@ -165,25 +254,25 @@ class CppFactory:
                 ");",
             )
         )
-        return self.statement(render(document, width=self.width))
+        return SourceDraft(self.language, render(document, width=self.width))
 
-    def variable(
+    def _variable_draft(
         self,
         cpp_type: str,
         name: str,
         *,
         initializer: str | None = None,
         storage: Iterable[str] = (),
-    ) -> SyntaxFragment:
-        """由常用字段创建变量声明片段。
-        Build a variable-declaration fragment from common structured fields.
+    ) -> SourceDraft:
+        """生成尚未解析的变量声明源码。
+        Build unparsed source for one variable declaration.
         """
         prefix = " ".join((*storage, cpp_type, name))
         if initializer is not None:
             prefix += f" = {initializer}"
-        return self.declaration(prefix)
+        return self._declaration_draft(prefix)
 
-    def function(
+    def _function_draft(
         self,
         return_type: str,
         name: str,
@@ -191,9 +280,9 @@ class CppFactory:
         parameters: Iterable[tuple[str, str]] = (),
         body: Iterable[str] = (),
         prefix: Iterable[str] = (),
-    ) -> SyntaxFragment:
-        """由签名和 body 创建函数定义片段。
-        Build a function-definition fragment from a signature and body statements.
+    ) -> SourceDraft:
+        """生成尚未解析的完整函数定义源码。
+        Build unparsed source for one complete function definition.
         """
         params = ", ".join(f"{typ} {param}" for typ, param in parameters)
         lines = list(body)
@@ -203,7 +292,21 @@ class CppFactory:
             source = f"{start} {{\n{body_text}\n}}"
         else:
             source = f"{start} {{}}"
-        return self._fragment(self._first(source, "function_definition"))
+        return SourceDraft(self.language, source)
+
+    def _region_draft(
+        self,
+        begin: str,
+        end: str,
+        body: Iterable[SourceDraft | SyntaxFragment],
+    ) -> SourceDraft:
+        """生成尚未解析的保护区域源码。
+        Build unparsed source for a protected region.
+        """
+        rendered = [begin]
+        rendered.extend(self._source_of(item).rstrip("\r\n") for item in body)
+        rendered.append(end)
+        return SourceDraft(self.language, "\n".join(rendered))
 
     def _region(
         self,
@@ -212,8 +315,8 @@ class CppFactory:
         end: str,
         body: Iterable[SyntaxFragment],
     ) -> SyntaxFragment:
-        """按 begin/end 标记构造保护区域。
-        Construct a protected region from begin/end markers and body fragments.
+        """按 begin/end 标记构造可插入保护区域。
+        Construct an insertable protected region from begin/end markers and body fragments.
         """
         children: list[GreenChild] = [
             GreenChild(GreenToken("comment", begin, named=True)),
@@ -228,13 +331,32 @@ class CppFactory:
             GreenNode(kind, tuple(children), named=True),
         )
 
+    def _source_of(self, item: SourceDraft | SyntaxFragment) -> str:
+        """返回同语言 draft/fragment 的源码文本。
+        Return source text from a same-language draft or syntax fragment.
+        """
+        if isinstance(item, SourceDraft):
+            return item.source_for(self.language)
+        item.green_for(self.language)
+        return item.render()
+
     def _fragment(self, element: SyntaxElement) -> SyntaxFragment:
         """把解析得到的元素包装成 C++ fragment。
         Wrap one parsed syntax element as a C++ fragment.
         """
         return SyntaxFragment(self.language, element.green)
 
-    def _first(self, source: str, kind: str) -> SyntaxNode:
+    def _first_element(self, source: str, kind: str) -> SyntaxElement:
+        """返回临时解析结果中指定 kind 的第一个元素。
+        Return the first parsed syntax element of the requested kind.
+        """
+        document = CppDocument.parse(source, parser=self.parser)
+        elements = document.elements(kind)
+        if not elements:
+            raise ValueError(f"generated fragment did not contain {kind}")
+        return elements[0]
+
+    def _first_node(self, source: str, kind: str) -> SyntaxNode:
         """返回临时解析结果中指定 kind 的第一个节点。
         Return the first parsed node of the requested kind.
         """

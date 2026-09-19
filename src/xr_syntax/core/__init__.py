@@ -4,7 +4,7 @@ Core immutable syntax, grammar, span, document, and parser-schema abstractions.
 
 from .diagnostic import Diagnostic
 from .document import SyntaxDocument, SyntaxParserProtocol
-from .fragment import SyntaxFragment
+from .fragment import SourceDraft, SyntaxFragment
 from .grammar import (
     GrammarNodeSpec,
     GrammarSlot,
@@ -33,6 +33,7 @@ __all__ = [
     "LanguageGrammar",
     "ParserKindInfo",
     "ParserSchema",
+    "SourceDraft",
     "SourcePoint",
     "SourceSpan",
     "SyntaxDocument",

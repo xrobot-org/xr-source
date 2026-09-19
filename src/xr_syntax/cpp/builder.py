@@ -1,5 +1,5 @@
-"""提供 C++ 文件、函数和代码块的结构化构建器，生成结果与解析结果使用同一语法模型。
-Structured C++ file, function, and block builders layered on CppFactory.
+"""提供 C++ 文件、函数和代码块的批量源码构建器。
+Batch C++ file, function, and block builders that parse once at the document boundary.
 """
 
 from __future__ import annotations
@@ -7,43 +7,45 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from xr_syntax.core import SyntaxFragment
+from xr_syntax.core import SourceDraft, SyntaxFragment
 from xr_syntax.format import Group, Indent, concat, hardline, join, render, softline, verbatim
 
 from .document import CppDocument
 from .factory import CppFactory
 
-# ---------------------------------------------------------------------------
-# 结构化源码生成辅助层
-# Structured generation helpers
-# ---------------------------------------------------------------------------
 
 @dataclass
 class CppBlockBuilder:
-    """用于按顺序累积一个 C++ 复合语句体中各片段的便捷构建器。
-    Mutable convenience accumulator for constructing one C++ compound body.
+    """按顺序累积尚未解析的函数体源码。
+    Accumulate function-body source without parsing each statement separately.
     """
+
     factory: CppFactory
-    items: list[SyntaxFragment] = field(default_factory=list)
+    items: list[SourceDraft | SyntaxFragment] = field(default_factory=list)
 
-    def add(self, element: SyntaxFragment) -> SyntaxFragment:
-        """把一个 green 元素追加到当前代码块构建器，并返回该元素。
-        Append the element to this builder and return it.
+    def add(self, item: SourceDraft | SyntaxFragment) -> SourceDraft | SyntaxFragment:
+        """追加同语言 draft 或已验证 fragment。
+        Append a same-language draft or validated fragment.
         """
-        self.items.append(element)
-        return element
+        self.factory._source_of(item)
+        self.items.append(item)
+        return item
 
-    def statement(self, source: str) -> SyntaxFragment:
-        """创建并追加一条 C++ 语句。
-        Create and append one statement.
+    def statement(self, source: str) -> SourceDraft:
+        """追加一条尚未解析的 C++ 语句。
+        Append one unparsed C++ statement draft.
         """
-        return self.add(self.factory.statement(source))
+        draft = self.factory._statement_draft(source)
+        self.add(draft)
+        return draft
 
-    def call(self, callee: str, arguments: Iterable[str] = ()) -> SyntaxFragment:
-        """创建并追加一条函数调用语句。
-        Create and append one call statement.
+    def call(self, callee: str, arguments: Iterable[str] = ()) -> SourceDraft:
+        """追加一条尚未解析的函数调用语句。
+        Append one unparsed function-call draft.
         """
-        return self.add(self.factory.call_statement(callee, arguments))
+        draft = self.factory._call_statement_draft(callee, arguments)
+        self.add(draft)
+        return draft
 
     def variable(
         self,
@@ -52,53 +54,80 @@ class CppBlockBuilder:
         *,
         initializer: str | None = None,
         storage: Iterable[str] = (),
-    ) -> SyntaxFragment:
-        """创建并追加一条变量声明。
-        Create and append one variable declaration.
+    ) -> SourceDraft:
+        """追加一条尚未解析的变量声明。
+        Append one unparsed variable-declaration draft.
         """
-        return self.add(
-            self.factory.variable(
-                cpp_type,
-                name,
-                initializer=initializer,
-                storage=storage,
-            )
+        draft = self.factory._variable_draft(
+            cpp_type,
+            name,
+            initializer=initializer,
+            storage=storage,
         )
+        self.add(draft)
+        return draft
 
     def user_region(
         self,
         name: str,
-        body: Iterable[SyntaxFragment] = (),
-    ) -> SyntaxFragment:
-        """创建并追加一组 User Code 保护区标记及其 body。
-        Create or append a paired User Code region.
+        body: Iterable[SourceDraft | SyntaxFragment] = (),
+    ) -> SourceDraft:
+        """追加 User Code Begin/End 区域。
+        Append one unparsed User Code region.
         """
-        return self.add(self.factory.user_region(name, body))
+        draft = self.factory._region_draft(
+            f"/* User Code Begin {name} */",
+            f"/* User Code End {name} */",
+            body,
+        )
+        self.add(draft)
+        return draft
 
-    def format_disabled(self, body: Iterable[SyntaxFragment]) -> SyntaxFragment:
-        """创建并追加 clang-format off/on 保护区域。
-        Create or append a clang-format disabled region.
+    def format_disabled(
+        self,
+        body: Iterable[SourceDraft | SyntaxFragment],
+    ) -> SourceDraft:
+        """追加 clang-format off/on 区域。
+        Append one unparsed clang-format disabled region.
         """
-        return self.add(self.factory.format_region(body))
+        draft = self.factory._region_draft(
+            "// clang-format off",
+            "// clang-format on",
+            body,
+        )
+        self.add(draft)
+        return draft
 
-    def lint_disabled(self, body: Iterable[SyntaxFragment]) -> SyntaxFragment:
-        """创建并追加 NOLINTBEGIN/NOLINTEND 保护区域。
-        Create or append a NOLINT disabled region.
+    def lint_disabled(
+        self,
+        body: Iterable[SourceDraft | SyntaxFragment],
+    ) -> SourceDraft:
+        """追加 NOLINTBEGIN/NOLINTEND 区域。
+        Append one unparsed NOLINT disabled region.
         """
-        return self.add(self.factory.lint_region(body))
+        draft = self.factory._region_draft(
+            "// NOLINTBEGIN",
+            "// NOLINTEND",
+            body,
+        )
+        self.add(draft)
+        return draft
 
-    def raw(self, source: str) -> SyntaxFragment:
-        """追加一段不解释内部结构的原始 C++ 源码。
-        Append or create opaque source text without interpreting its internal structure.
+    def raw(self, source: str) -> SourceDraft:
+        """追加一段尚未解析的原始 C++ 源码。
+        Append unparsed raw C++ source for final document validation.
         """
-        return self.add(self.factory.raw(source))
+        draft = SourceDraft(self.factory.language, source)
+        self.add(draft)
+        return draft
 
 
 @dataclass
 class CppFunctionBuilder:
-    """在生成 parser-backed 语法之前收集函数签名、参数和函数体。
-    Collect a function signature/body before producing parser-backed syntax.
+    """收集函数签名和 body，在需要时生成 draft 或独立 fragment。
+    Collect a function signature and body before producing a draft or standalone fragment.
     """
+
     factory: CppFactory
     return_type: str
     name: str
@@ -107,26 +136,23 @@ class CppFunctionBuilder:
     body: CppBlockBuilder = field(init=False)
 
     def __post_init__(self) -> None:
-        """为函数构建器创建独立的 CppBlockBuilder 作为函数体累积器。
-        Create an independent CppBlockBuilder used to accumulate the function body.
+        """创建函数体累积器。
+        Create the function-body accumulator.
         """
         self.body = CppBlockBuilder(self.factory)
 
     def parameter(self, cpp_type: str, name: str) -> CppFunctionBuilder:
-        """按源码顺序追加一个由类型和名称组成的函数参数。
-        Append one source-level function parameter.
+        """按源码顺序追加一个函数参数。
+        Append one function parameter in source order.
         """
         self.parameters.append((cpp_type, name))
         return self
 
-    def build(self) -> SyntaxFragment:
-        """通过布局 IR 渲染函数签名和 body，再解析成统一 green 语法元素。
-        Render the signature/body through the layout IR and parse the result as C++ syntax.
+    def draft(self) -> SourceDraft:
+        """渲染函数源码但不单独解析。
+        Render the function source without parsing it separately.
         """
-        params = [
-            concat(cpp_type, " ", name)
-            for cpp_type, name in self.parameters
-        ]
+        params = [concat(cpp_type, " ", name) for cpp_type, name in self.parameters]
         signature = concat(
             " ".join((*self.prefix, self.return_type)).strip(),
             " ",
@@ -140,7 +166,13 @@ class CppFunctionBuilder:
                 )
             ),
         )
-        body = join(hardline, (verbatim(item.render()) for item in self.body.items))
+        body = join(
+            hardline,
+            (
+                verbatim(self.factory._source_of(item).rstrip("\r\n"))
+                for item in self.body.items
+            ),
+        )
         if self.body.items:
             document = concat(
                 signature,
@@ -151,72 +183,104 @@ class CppFunctionBuilder:
             )
         else:
             document = concat(signature, " {}")
-        source = render(document, width=self.factory.width)
-        return self.factory.declaration(source)
+        return SourceDraft(
+            self.factory.language,
+            render(document, width=self.factory.width),
+        )
+
+    def build(self) -> SyntaxFragment:
+        """把当前函数单独解析为可插入 fragment。
+        Parse this function as a standalone insertable fragment.
+        """
+        return self.factory.declaration(self.draft().source)
 
 
-# FileBuilder 只是便于调用的可变累积状态；build() 最终一定返回不可变、
-# parser-backed 的 CppDocument，使“生成源码”和“解析已有源码”汇合到同一模型。
-# FileBuilder is ergonomic mutable state only. build() always returns an
-# immutable parser-backed CppDocument, so generated and parsed source converge.
 @dataclass
 class CppFileBuilder:
-    """用于构建完整 C++ 源文件或头文件的顶层构建器。
-    Top-level C++ source/header builder using CppFactory fragments.
+    """累积 C++ source draft，并在 build() 时只解析完整文件一次。
+    Accumulate C++ source drafts and parse the complete file once in build().
     """
+
     factory: CppFactory = field(default_factory=CppFactory)
     header: bool = False
-    items: list[SyntaxFragment | CppFunctionBuilder] = field(default_factory=list)
+    items: list[SourceDraft | SyntaxFragment | CppFunctionBuilder] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        """初始化底层 CppFactory，并在头文件模式下准备 pragma once。
-        Initialize the underlying CppFactory and prepare pragma once when building a header.
+        """在头文件模式下加入 pragma once draft。
+        Add a pragma-once draft when building a header.
         """
         if self.header:
-            self.items.append(self.factory.directive("#pragma once"))
+            self.items.append(self.factory._directive_draft("#pragma once"))
 
-    def add(self, element: SyntaxFragment) -> SyntaxFragment:
-        """把一个 green 元素追加到文件构建器并原样返回。
-        Append the element to this builder and return it.
+    def add(self, item: SourceDraft | SyntaxFragment) -> SourceDraft | SyntaxFragment:
+        """追加同语言 draft 或已验证 fragment。
+        Append a same-language draft or validated fragment.
         """
-        self.items.append(element)
-        return element
+        self.factory._source_of(item)
+        self.items.append(item)
+        return item
 
-    def include(self, header: str, *, system: bool = False) -> SyntaxFragment:
-        """创建并追加一条 include 指令。
-        Create or append one include directive.
+    def include(self, header: str, *, system: bool = False) -> SourceDraft:
+        """追加 include draft。
+        Append one include draft.
         """
-        return self.add(self.factory.include(header, system=system))
+        draft = self.factory._include_draft(header, system=system)
+        self.add(draft)
+        return draft
 
-    def comment(self, text: str, *, block: bool = False) -> SyntaxFragment:
-        """创建并追加一条源码注释。
-        Append or create a source comment.
+    def comment(self, text: str, *, block: bool = False) -> SourceDraft:
+        """追加注释 draft。
+        Append one comment draft.
         """
-        return self.add(self.factory.comment(text, block=block))
+        draft = self.factory._comment_draft(text, block=block)
+        self.add(draft)
+        return draft
 
-    def raw(self, source: str) -> SyntaxFragment:
-        """追加一段不解释内部结构的原始 C++ 源码。
-        Append or create opaque source text without interpreting its internal structure.
+    def raw(self, source: str) -> SourceDraft:
+        """追加原始 source draft，并留到最终 parse 统一验证。
+        Append raw source for validation by the final document parse.
         """
-        return self.add(self.factory.raw(source))
+        draft = SourceDraft(self.factory.language, source)
+        self.add(draft)
+        return draft
 
-    def format_disabled(self, body: Iterable[SyntaxFragment]) -> SyntaxFragment:
-        """创建并追加 clang-format 禁用区域。
-        Create or append a clang-format disabled region.
+    def format_disabled(
+        self,
+        body: Iterable[SourceDraft | SyntaxFragment],
+    ) -> SourceDraft:
+        """追加 clang-format 禁用区域 draft。
+        Append one clang-format disabled region draft.
         """
-        return self.add(self.factory.format_region(body))
+        draft = self.factory._region_draft(
+            "// clang-format off",
+            "// clang-format on",
+            body,
+        )
+        self.add(draft)
+        return draft
 
-    def lint_disabled(self, body: Iterable[SyntaxFragment]) -> SyntaxFragment:
-        """创建并追加 NOLINT 禁用区域。
-        Create or append a NOLINT disabled region.
+    def lint_disabled(
+        self,
+        body: Iterable[SourceDraft | SyntaxFragment],
+    ) -> SourceDraft:
+        """追加 NOLINT 禁用区域 draft。
+        Append one NOLINT disabled region draft.
         """
-        return self.add(self.factory.lint_region(body))
+        draft = self.factory._region_draft(
+            "// NOLINTBEGIN",
+            "// NOLINTEND",
+            body,
+        )
+        self.add(draft)
+        return draft
 
-    def declaration(self, source: str) -> SyntaxFragment:
-        """创建并追加一条顶层 C++ 声明。
-        Create or append one declaration.
+    def declaration(self, source: str) -> SourceDraft:
+        """追加顶层声明 draft。
+        Append one top-level declaration draft.
         """
-        return self.add(self.factory.declaration(source))
+        draft = self.factory._declaration_draft(source)
+        self.add(draft)
+        return draft
 
     def variable(
         self,
@@ -225,18 +289,18 @@ class CppFileBuilder:
         *,
         initializer: str | None = None,
         storage: Iterable[str] = (),
-    ) -> SyntaxFragment:
-        """创建并追加一条顶层变量声明。
-        Create and append one variable declaration.
+    ) -> SourceDraft:
+        """追加顶层变量声明 draft。
+        Append one top-level variable-declaration draft.
         """
-        return self.add(
-            self.factory.variable(
-                cpp_type,
-                name,
-                initializer=initializer,
-                storage=storage,
-            )
+        draft = self.factory._variable_draft(
+            cpp_type,
+            name,
+            initializer=initializer,
+            storage=storage,
         )
+        self.add(draft)
+        return draft
 
     def function(
         self,
@@ -246,8 +310,8 @@ class CppFileBuilder:
         parameters: Iterable[tuple[str, str]] = (),
         prefix: Iterable[str] = (),
     ) -> CppFunctionBuilder:
-        """创建函数构建器并把它按源码顺序挂到当前文件。
-        Create a function builder in source order.
+        """创建函数 builder，并挂到当前文件的源码顺序中。
+        Create a function builder in this file's source order.
         """
         function = CppFunctionBuilder(
             self.factory,
@@ -262,22 +326,35 @@ class CppFileBuilder:
     def user_region(
         self,
         name: str,
-        body: Iterable[SyntaxFragment] = (),
-    ) -> SyntaxFragment:
-        """创建并追加一组 User Code 保护区域。
-        Create or append a paired User Code region.
+        body: Iterable[SourceDraft | SyntaxFragment] = (),
+    ) -> SourceDraft:
+        """追加 User Code 区域 draft。
+        Append one User Code region draft.
         """
-        return self.add(self.factory.user_region(name, body))
+        draft = self.factory._region_draft(
+            f"/* User Code Begin {name} */",
+            f"/* User Code End {name} */",
+            body,
+        )
+        self.add(draft)
+        return draft
 
-    def build(self) -> CppDocument:
-        """渲染全部片段并重新解析，返回完整 CppDocument。
-        Render accumulated fragments, parse the complete file and return a CppDocument.
+    def build(self, *, require_clean: bool = False) -> CppDocument:
+        """渲染全部源码并只 parse 一次；可要求生成结果没有 diagnostics。
+        Parse the complete generated file once and optionally require a clean result.
         """
         rendered: list[str] = []
         for item in self.items:
-            element = item.build() if isinstance(item, CppFunctionBuilder) else item
-            rendered.append(element.render().rstrip("\r\n"))
+            if isinstance(item, CppFunctionBuilder):
+                source = item.draft().source
+            else:
+                source = self.factory._source_of(item)
+            rendered.append(source.rstrip("\r\n"))
         source = "\n".join(rendered)
         if source and not source.endswith("\n"):
             source += "\n"
-        return CppDocument.parse(source, parser=self.factory.parser)
+        document = CppDocument.parse(source, parser=self.factory.parser)
+        if require_clean and document.diagnostics:
+            messages = "; ".join(item.message for item in document.diagnostics)
+            raise ValueError(f"generated C++ source has parser diagnostics: {messages}")
+        return document

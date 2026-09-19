@@ -33,6 +33,17 @@ The real corpus exposed an expression-replacement bug that consumed edge trivia;
 CMake parser 已并入基础包，测试覆盖 CRLF round-trip、命令查询、builder 和结构化编辑。  
 The CMake parser ships in the base package, with tests for CRLF round trips, command queries, builders, and structured edits.
 
+## Builder 批量生成 / Batched Builders
+
+Builder-only 路径在 `build()` 前不调用 parser，最终完整文件只 parse 一次。C++ 和 CMake 都有 counting-parser 回归测试。  
+The builder-only path does not call the parser before `build()` and parses the complete file once. Counting-parser regression tests cover both C++ and CMake.
+
+Factory 仍然单独校验 `SyntaxFragment`；显式把 Factory fragment 传给 Builder 时，该片段已经在进入 Builder 前完成校验。  
+Factories still validate standalone `SyntaxFragment` objects. A factory fragment passed explicitly to a builder has already been validated before it reaches the builder.
+
+`require_clean=True` 覆盖生成结果的严格错误策略，默认模式则保留 parser diagnostics 供调用者处理。  
+`require_clean=True` covers the strict generation path, while the default build mode preserves parser diagnostics for the caller.
+
 ## 历史基线 / Historical Baselines
 
 旧 Tree-sitter C++ backend 曾跑过 4,420 files / 153,971,079 bytes 的 corpus；该结果只作为历史基线，不代表当前 native parser 的覆盖数字。  

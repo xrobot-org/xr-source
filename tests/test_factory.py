@@ -29,3 +29,12 @@ def test_expression_is_structured() -> None:
     """
     expression = CppFactory().expression("a + b * c")
     assert expression.render() == "a + b * c"
+
+
+def test_cpp_factory_comment_handles_named_comment_tokens() -> None:
+    """验证 comment factory 可以包装 parser 暴露的 named token。
+    Verify that comment factories handle comments exposed as named tokens.
+    """
+    factory = CppFactory()
+    assert factory.comment("line").render() == "// line"
+    assert factory.comment("block", block=True).render() == "/* block */"

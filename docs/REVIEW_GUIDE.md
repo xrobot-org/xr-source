@@ -44,8 +44,8 @@ Review the data model first, then the parsers, followed by high-level APIs and t
    Review query and typed-view APIs.
 
 10. `src/xr_syntax/cpp/factory.py` 与 `builder.py`  
-    确认生成结果回到同一 parser/model。  
-    Confirm generated source returns to the same parser and model.
+    确认 Factory 的 `SyntaxFragment` 与 Builder 的 `SourceDraft` 职责分开，Builder 最终只 parse 一次。  
+    Confirm that Factory `SyntaxFragment` validation is separate from Builder `SourceDraft` batching and that Builder performs one final parse.
 
 ## 3. CMake
 

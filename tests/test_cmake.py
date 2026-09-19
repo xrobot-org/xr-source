@@ -117,3 +117,63 @@ def test_cmake_structured_edit_reparses() -> None:
     assert document.render() == "project(Old)\n"
     assert changed.render() == "project(New)\n"
     assert changed.command_views("project")[0].arguments[0].text == "New"
+
+
+def test_cmake_builder_parses_only_once_at_build_boundary() -> None:
+    """验证 CMake builder-only 路径最终只 parse 一次。
+    Verify that the CMake builder-only path parses once at the final build boundary.
+    """
+    class CountingParser(CMakeParser):
+        """记录 parse 调用次数的测试 CMake parser。
+        Test CMake parser that counts parse calls.
+        """
+
+        def __init__(self) -> None:
+            """初始化 parser 和计数器。
+            Initialize the parser and parse-call counter.
+            """
+            super().__init__()
+            self.calls = 0
+
+        def parse(self, source, *, source_name=None):  # type: ignore[no-untyped-def,override]
+            """记录调用后执行正常解析。
+            Count the call and delegate to the normal parser.
+            """
+            self.calls += 1
+            return super().parse(source, source_name=source_name)
+
+    parser = CountingParser()
+    builder = CMakeFileBuilder(factory=CMakeFactory(parser=parser))
+    builder.comment("generated")
+    builder.command("project", ["Demo"])
+    body = [builder.factory._command_draft("message", ["STATUS", '"ok"'])]
+    builder.if_block(["ENABLED"], body)
+
+    assert parser.calls == 0
+    document = builder.build(require_clean=True)
+    assert parser.calls == 1
+    assert len(document.command_views("project")) == 1
+    assert len(document.command_views("message")) == 1
+
+
+def test_cmake_factory_comment_handles_named_comment_tokens() -> None:
+    """验证 CMake comment factory 可以包装 named token。
+    Verify that the CMake comment factory handles named comment tokens.
+    """
+    assert CMakeFactory().comment("generated").render() == "# generated"
+
+
+def test_cmake_builder_require_clean_controls_generation_diagnostics() -> None:
+    """验证 CMake builder strict 模式会拒绝有 parser diagnostics 的生成结果。
+    Verify that strict CMake builds reject generated source with parser diagnostics.
+    """
+    import pytest
+
+    builder = CMakeFileBuilder()
+    builder.raw("if(FOO)\n")
+    assert builder.build().diagnostics
+
+    strict = CMakeFileBuilder()
+    strict.raw("if(FOO)\n")
+    with pytest.raises(ValueError, match="generated CMake source"):
+        strict.build(require_clean=True)

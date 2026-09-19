@@ -63,3 +63,61 @@ def test_file_builder_structures_format_and_lint_regions() -> None:
     assert len(document.lint_regions()) == 1
     assert "static int generated = 0;" in document.format_regions()[0].body_text
     assert "generated_call();" in document.lint_regions()[0].body_text
+
+
+def test_cpp_builder_parses_only_once_at_build_boundary() -> None:
+    """验证 builder-only 路径不会逐片段 parse，最终 build 只 parse 一次。
+    Verify that the builder-only path parses once at the final build boundary.
+    """
+    from xr_syntax.cpp import CppFactory, CppParser
+
+    class CountingParser(CppParser):
+        """记录 parse 调用次数的测试 parser。
+        Test parser that counts parse calls.
+        """
+
+        def __init__(self) -> None:
+            """初始化 parser 和计数器。
+            Initialize the parser and parse-call counter.
+            """
+            super().__init__()
+            self.calls = 0
+
+        def parse(self, source, *, source_name=None):  # type: ignore[no-untyped-def,override]
+            """记录调用后执行正常解析。
+            Count the call and delegate to the normal parser.
+            """
+            self.calls += 1
+            return super().parse(source, source_name=source_name)
+
+    parser = CountingParser()
+    builder = CppFileBuilder(factory=CppFactory(parser=parser))
+    builder.include("app.hpp")
+    builder.comment("generated")
+    builder.variable("int", "value", initializer="1", storage=["static"])
+    function = builder.function("void", "run")
+    function.body.call("target", ["value"])
+    function.body.user_region("body", [function.body.raw("keep();")])
+
+    assert parser.calls == 0
+    document = builder.build(require_clean=True)
+    assert parser.calls == 1
+    assert len(document.functions("run")) == 1
+    assert len(document.user_regions()) == 1
+
+
+def test_cpp_builder_require_clean_controls_generation_diagnostics() -> None:
+    """验证 builder 默认保留 diagnostics，strict 模式会拒绝有诊断的生成结果。
+    Verify that builders expose diagnostics by default and can reject them explicitly.
+    """
+    import pytest
+
+    builder = CppFileBuilder()
+    builder.raw("void broken() {")
+    document = builder.build()
+    assert document.diagnostics
+
+    strict = CppFileBuilder()
+    strict.raw("void broken() {")
+    with pytest.raises(ValueError, match="generated C\\+\\+ source"):
+        strict.build(require_clean=True)

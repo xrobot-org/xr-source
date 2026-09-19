@@ -44,10 +44,16 @@ The CMake frontend directly parses commands, arguments, comments, and paired blo
 `LanguageGrammar` 保存 node kind、field、children 和 subtype 关系。C++ 使用项目内维护的 native contract；CMake 使用固定版本的 grammar metadata 生成同一种结构描述。  
 `LanguageGrammar` stores node kinds, fields, child rules, and subtype relationships. C++ uses a native contract maintained in this project; CMake maps pinned grammar metadata into the same representation.
 
-## Builder 与 formatter / Builder and Formatter
+## Factory、Builder 与 formatter / Factory, Builder and Formatter
 
-Factory 和 builder 负责创建源码片段，生成后的文本重新进入 parser，因此读取和生成使用同一套语法表示。  
-Factories and builders create source fragments and feed generated text back through the parser, so parsed and generated code use the same syntax representation.
+Factory 返回已经经过 parser 的 `SyntaxFragment`，用于独立片段校验和文档编辑。Builder 使用 `SourceDraft` 累积生成源码，在 `build()` 边界统一 parse 一次。  
+Factories return parser-backed `SyntaxFragment` objects for standalone validation and document edits. Builders accumulate generated `SourceDraft` text and parse once at the `build()` boundary.
+
+Builder 也可以接收同语言 `SyntaxFragment`。最终文档始终来自完整源码的 parser 结果，因此生成和读取使用同一套语法表示。  
+Builders can also accept same-language `SyntaxFragment` objects. The final document always comes from parsing the complete generated source, so generation and parsing converge on the same syntax model.
+
+`build(require_clean=True)` 会在最终 parser 产生 diagnostics 时拒绝结果；默认模式返回文档并保留 diagnostics。  
+`build(require_clean=True)` rejects generated source with parser diagnostics; the default mode returns the document with those diagnostics attached.
 
 layout IR 决定新生成文本的换行和缩进。已有源码的 `render()` 直接还原语法树保存的内容。  
 The layout IR controls wrapping and indentation for generated text. `render()` reproduces the source stored by an existing syntax tree.

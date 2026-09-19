@@ -124,3 +124,18 @@ def test_rewriter_keeps_diagnostics_only_when_tree_is_unchanged() -> None:
     assert changed.render() == "int renamed = 1;\n"
     assert changed.diagnostics is None
     assert changed.diagnostic_state == "unknown"
+
+
+def test_builder_rejects_source_draft_from_another_language() -> None:
+    """Builder 不接受其他语言的未解析 SourceDraft。
+    Builders reject unparsed source drafts carrying another language tag.
+    """
+    from xr_syntax.cmake import CMakeFileBuilder
+    from xr_syntax.cpp import CppFileBuilder
+
+    cmake = CMakeFileBuilder()
+    cmake_draft = cmake.command("project", ["Demo"])
+    cpp = CppFileBuilder()
+
+    with pytest.raises(ValueError, match="draft language"):
+        cpp.add(cmake_draft)

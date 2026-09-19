@@ -1,5 +1,5 @@
-"""提供完整 CMake 文件的结构化构建器，并把生成结果重新解析为统一的语法模型。
-Structured builder for complete CMake source files.
+"""提供只在 build() 边界解析一次的 CMake 文件构建器。
+CMake file builder that parses once at the build() boundary.
 """
 
 from __future__ import annotations
@@ -7,7 +7,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from xr_syntax.core import SyntaxFragment
+from xr_syntax.core import SourceDraft, SyntaxFragment
 
 from .document import CMakeDocument
 from .factory import CMakeFactory
@@ -15,57 +15,74 @@ from .factory import CMakeFactory
 
 @dataclass
 class CMakeFileBuilder:
-    """用于按源码顺序累积 CMake 片段并最终构建完整 CMakeDocument 的顶层构建器。
-    Top-level builder for complete CMake files using parser-backed fragments.
+    """累积 CMake source draft，并在 build() 时统一解析。
+    Accumulate CMake source drafts and parse the complete file once in build().
     """
+
     factory: CMakeFactory = field(default_factory=CMakeFactory)
-    items: list[SyntaxFragment] = field(default_factory=list)
+    items: list[SourceDraft | SyntaxFragment] = field(default_factory=list)
 
-    def add(self, element: SyntaxFragment) -> SyntaxFragment:
-        """把一个语法元素追加到当前文件构建器，并返回该元素便于继续组合。
-        Append the element to this builder and return it.
+    def add(self, item: SourceDraft | SyntaxFragment) -> SourceDraft | SyntaxFragment:
+        """追加同语言 draft 或已验证 fragment。
+        Append a same-language draft or validated fragment.
         """
-        self.items.append(element)
-        return element
+        self.factory._source_of(item)
+        self.items.append(item)
+        return item
 
-    def raw(self, source: str) -> SyntaxFragment:
-        """追加一段不解释内部结构的原始 CMake 源码。
-        Append or create opaque source text without interpreting its internal structure.
+    def raw(self, source: str) -> SourceDraft:
+        """追加原始 CMake source draft。
+        Append raw CMake source for validation by the final parse.
         """
-        return self.add(self.factory.raw(source))
+        draft = SourceDraft(self.factory.language, source)
+        self.add(draft)
+        return draft
 
-    def comment(self, text: str) -> SyntaxFragment:
-        """创建并追加一条 CMake 行注释。
-        Append or create a source comment.
+    def comment(self, text: str) -> SourceDraft:
+        """追加 CMake 注释 draft。
+        Append one CMake comment draft.
         """
-        return self.add(self.factory.comment(text))
+        draft = self.factory._comment_draft(text)
+        self.add(draft)
+        return draft
 
     def command(
         self,
         name: str,
         arguments: Iterable[str] = (),
-    ) -> SyntaxFragment:
-        """创建并追加一个 CMake 命令。
-        Create and append one command.
+    ) -> SourceDraft:
+        """追加 CMake 命令 draft。
+        Append one CMake command draft.
         """
-        return self.add(self.factory.command(name, arguments))
+        draft = self.factory._command_draft(name, arguments)
+        self.add(draft)
+        return draft
 
     def if_block(
         self,
         condition: Iterable[str],
-        body: Iterable[SyntaxFragment],
-    ) -> SyntaxFragment:
-        """创建并追加一个完整的 if()/endif() 条件块。
-        Create and append one complete conditional block.
+        body: Iterable[SourceDraft | SyntaxFragment],
+    ) -> SourceDraft:
+        """追加完整的 if()/endif() 条件块 draft。
+        Append one complete if()/endif() block draft.
         """
-        return self.add(self.factory.if_block(condition, body))
+        draft = self.factory._if_block_draft(condition, body)
+        self.add(draft)
+        return draft
 
-    def build(self) -> CMakeDocument:
-        """渲染已累积片段，再重新解析为完整的 CMakeDocument。
-        Render all fragments and parse the complete source back into CMakeDocument.
+    def build(self, *, require_clean: bool = False) -> CMakeDocument:
+        """渲染全部源码并只 parse 一次；可要求生成结果没有 diagnostics。
+        Parse the complete generated file once and optionally require a clean result.
         """
-        rendered = [item.render().rstrip("\r\n") for item in self.items]
+        rendered = [
+            self.factory._source_of(item).rstrip("\r\n")
+            for item in self.items
+        ]
         source = "\n".join(rendered)
         if source and not source.endswith("\n"):
             source += "\n"
-        return CMakeDocument.parse(source, parser=self.factory.parser)
+        document = CMakeDocument.parse(source, parser=self.factory.parser)
+        if require_clean and document.diagnostics:
+            messages = "; ".join(item.message for item in document.diagnostics)
+            raise ValueError(f"generated CMake source has parser diagnostics: {messages}")
+        return document
