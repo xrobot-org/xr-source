@@ -78,7 +78,7 @@ def matching_delimiter(tokens: Sequence[CppLexicalToken], start: int) -> int:
             stack.pop()
             if not stack:
                 return index
-    raise ValueError("Unclosed delimiter at offset %d" % tokens[start].start)
+    raise ValueError(f"Unclosed delimiter at offset {tokens[start].start}")
 
 
 def _byte_to_char_offsets(source: str) -> dict[int, int]:

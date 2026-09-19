@@ -6,13 +6,13 @@ from .builder import CppBlockBuilder, CppFileBuilder, CppFunctionBuilder
 from .document import CppDocument, CppRegion
 from .factory import CppFactory
 from .grammar import CPP_GRAMMAR, GRAMMAR_REVISION, GRAMMAR_VERSION
-from .lexical import CppLexicalToken, code_tokens, matching_delimiter
 from .invocation import (
     CppIdentifierOccurrence,
     CppInvocationView,
     identifier_occurrences,
     split_source_list,
 )
+from .lexical import CppLexicalToken, code_tokens, matching_delimiter
 from .parser import CppParser
 from .view import (
     CppCallView,
