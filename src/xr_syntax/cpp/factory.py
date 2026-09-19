@@ -11,6 +11,7 @@ from xr_syntax.core import (
     GreenNode,
     GreenToken,
     GreenTrivia,
+    SyntaxElement,
     SyntaxFragment,
     SyntaxNode,
 )
@@ -227,11 +228,11 @@ class CppFactory:
             GreenNode(kind, tuple(children), named=True),
         )
 
-    def _fragment(self, node: SyntaxNode) -> SyntaxFragment:
-        """把解析得到的节点包装成 C++ fragment。
-        Wrap one parsed node as a C++ syntax fragment.
+    def _fragment(self, element: SyntaxElement) -> SyntaxFragment:
+        """把解析得到的元素包装成 C++ fragment。
+        Wrap one parsed syntax element as a C++ fragment.
         """
-        return SyntaxFragment(self.language, node.green)
+        return SyntaxFragment(self.language, element.green)
 
     def _first(self, source: str, kind: str) -> SyntaxNode:
         """返回临时解析结果中指定 kind 的第一个节点。

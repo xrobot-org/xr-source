@@ -43,7 +43,7 @@ dev = [
     "build>=1.2",
     "pytest>=8",
     "ruff>=0.12",
-    "mypy>=1.15",
+    "mypy>=1.15,<2",
 ]
 
 [tool.setuptools.packages.find]
