@@ -1,5 +1,5 @@
-"""提供常见 C++ 源码片段的 parser-backed 工厂，包括 include、声明、表达式和保护区。
-Factories that create parser-backed C++ syntax fragments from structured inputs.
+"""提供常见 C++ 源码片段的 parser-backed 工厂。
+Factories for parser-backed C++ source fragments.
 """
 
 from __future__ import annotations
@@ -8,10 +8,10 @@ from collections.abc import Iterable
 
 from xr_syntax.core import (
     GreenChild,
-    GreenElement,
     GreenNode,
     GreenToken,
     GreenTrivia,
+    SyntaxFragment,
     SyntaxNode,
 )
 from xr_syntax.format import Group, Indent, concat, join, line, render, softline
@@ -21,53 +21,60 @@ from .parser import CppParser
 
 
 class CppFactory:
-    """创建常用 C++ parser-backed 片段，并通过重新解析保证结构与文本一致。
-    Create validated C++ syntax fragments by parsing generated source snippets.
+    """创建带 C++ 语言归属的 parser-backed 片段。
+    Create parser-backed fragments carrying explicit C++ language provenance.
     """
+
+    language = "cpp"
+
     def __init__(self, parser: CppParser | None = None, *, width: int = 100) -> None:
-        """初始化 C++ 片段工厂并保存布局宽度。
-        Initialize the C++ fragment factory and store its layout width.
+        """初始化片段工厂并保存布局宽度。
+        Initialize the fragment factory and store its layout width.
         """
         self.parser = parser or CppParser()
         self.width = width
 
-    def include(self, header: str, *, system: bool = False) -> GreenElement:
-        """创建一条本地或 system include 指令并返回其 green 语法。
-        Create one parser-backed include directive.
+    def include(self, header: str, *, system: bool = False) -> SyntaxFragment:
+        """创建 include 指令片段。
+        Create one include-directive fragment.
         """
         delimiters = ("<", ">") if system else ('"', '"')
         source = f"#include {delimiters[0]}{header}{delimiters[1]}\n"
-        return self._first(source, "preproc_include").green
+        return self._fragment(self._first(source, "preproc_include"))
 
-    def comment(self, text: str, *, block: bool = False) -> GreenElement:
-        """创建一条 C++ 行注释或块注释片段。
-        Create one parser-backed line or block comment.
+    def comment(self, text: str, *, block: bool = False) -> SyntaxFragment:
+        """创建行注释或块注释片段。
+        Create one line-comment or block-comment fragment.
         """
         source = f"/* {text} */" if block else f"// {text}"
-        return self._first(source, "comment").green
+        return self._fragment(self._first(source, "comment"))
 
-    def directive(self, source: str) -> GreenElement:
-        """创建一条预处理指令，并按需要补齐行尾换行。
-        Create and validate one preprocessor directive fragment.
+    def directive(self, source: str) -> SyntaxFragment:
+        """创建预处理指令片段。
+        Create and validate one preprocessor-directive fragment.
         """
         document = CppDocument.parse(source.rstrip() + "\n", parser=self.parser)
         for child in document.root.syntax_children:
-            return child.green
+            return self._fragment(child)
         raise ValueError("directive did not produce syntax")
 
-    def raw(self, source: str) -> GreenElement:
-        """创建不解释内部结构的原始源码 trivia。
-        Create opaque generated text when no more specific factory is useful.
+    def raw(self, source: str) -> SyntaxFragment:
+        """创建显式 opaque 的原始 C++ 片段。
+        Create an explicit opaque C++ source fragment.
         """
-        return GreenToken("raw", source, named=True)
+        return SyntaxFragment(
+            self.language,
+            GreenToken("raw", source, named=True),
+            opaque=True,
+        )
 
     def user_region(
         self,
         name: str,
-        body: Iterable[GreenElement] = (),
-    ) -> GreenElement:
-        """创建带 User Code Begin/End 标记的保护区域。
-        Create a paired User Code region containing parser-backed fragments.
+        body: Iterable[SyntaxFragment] = (),
+    ) -> SyntaxFragment:
+        """创建 User Code Begin/End 区域。
+        Create a paired User Code region.
         """
         return self._region(
             "xr_user_region",
@@ -76,8 +83,8 @@ class CppFactory:
             body,
         )
 
-    def format_region(self, body: Iterable[GreenElement]) -> GreenElement:
-        """创建 clang-format off/on 保护区域。
+    def format_region(self, body: Iterable[SyntaxFragment]) -> SyntaxFragment:
+        """创建 clang-format off/on 区域。
         Create a paired clang-format off/on region.
         """
         return self._region(
@@ -87,8 +94,8 @@ class CppFactory:
             body,
         )
 
-    def lint_region(self, body: Iterable[GreenElement]) -> GreenElement:
-        """创建 NOLINTBEGIN/NOLINTEND 保护区域。
+    def lint_region(self, body: Iterable[SyntaxFragment]) -> SyntaxFragment:
+        """创建 NOLINTBEGIN/NOLINTEND 区域。
         Create a paired NOLINTBEGIN/NOLINTEND region.
         """
         return self._region(
@@ -98,9 +105,9 @@ class CppFactory:
             body,
         )
 
-    def expression(self, text: str) -> GreenElement:
-        """把表达式片段包入临时上下文解析，并返回结构化 expression green 元素。
-        Parse and return one expression syntax subtree.
+    def expression(self, text: str) -> SyntaxFragment:
+        """解析一个表达式片段。
+        Parse one expression fragment in a temporary function context.
         """
         document = CppDocument.parse(
             f"auto __xr_expr() -> decltype(auto) {{ return {text}; }}",
@@ -108,12 +115,12 @@ class CppFactory:
         )
         statement = document.nodes("return_statement")[0]
         for child in statement.named_children:
-            return child.green
+            return self._fragment(child)
         raise ValueError("expression did not produce syntax")
 
-    def statement(self, text: str) -> GreenElement:
-        """把语句片段放入临时函数体解析，并返回结构化 statement green 元素。
-        Parse and return one statement syntax subtree.
+    def statement(self, text: str) -> SyntaxFragment:
+        """解析一个语句片段。
+        Parse one statement fragment in a temporary function body.
         """
         suffix = text if text.rstrip().endswith((";", "}")) else text + ";"
         document = CppDocument.parse(
@@ -122,26 +129,26 @@ class CppFactory:
         )
         body = document.nodes("compound_statement")[0]
         for child in body.named_children:
-            return child.green
+            return self._fragment(child)
         raise ValueError("statement did not produce syntax")
 
-    def declaration(self, text: str) -> GreenElement:
-        """解析一条顶层声明并返回对应 green 元素。
-        Parse and return one top-level declaration syntax subtree.
+    def declaration(self, text: str) -> SyntaxFragment:
+        """解析一个顶层声明片段。
+        Parse one top-level declaration fragment.
         """
         source = text if text.rstrip().endswith((";", "}")) else text + ";"
         document = CppDocument.parse(source, parser=self.parser)
         for child in document.root.named_children:
-            return child.green
+            return self._fragment(child)
         raise ValueError("declaration did not produce syntax")
 
     def call_statement(
         self,
         callee: str,
         arguments: Iterable[str],
-    ) -> GreenElement:
-        """通过布局 IR 创建一条调用语句，并重新解析成结构化 green 元素。
-        Build a function-call statement using the shared layout IR for argument wrapping.
+    ) -> SyntaxFragment:
+        """通过布局 IR 创建函数调用语句。
+        Build a function-call statement through the shared layout IR.
         """
         document = Group(
             concat(
@@ -166,9 +173,9 @@ class CppFactory:
         *,
         initializer: str | None = None,
         storage: Iterable[str] = (),
-    ) -> GreenElement:
-        """由类型、名称、存储类和初始化器创建变量声明。
-        Build a simple variable declaration from common structured components.
+    ) -> SyntaxFragment:
+        """由常用字段创建变量声明片段。
+        Build a variable-declaration fragment from common structured fields.
         """
         prefix = " ".join((*storage, cpp_type, name))
         if initializer is not None:
@@ -183,9 +190,9 @@ class CppFactory:
         parameters: Iterable[tuple[str, str]] = (),
         body: Iterable[str] = (),
         prefix: Iterable[str] = (),
-    ) -> GreenElement:
-        """由返回类型、名称、参数和 body 创建完整函数定义。
-        Build a function definition from signature components and body statements.
+    ) -> SyntaxFragment:
+        """由签名和 body 创建函数定义片段。
+        Build a function-definition fragment from a signature and body statements.
         """
         params = ", ".join(f"{typ} {param}" for typ, param in parameters)
         lines = list(body)
@@ -195,31 +202,40 @@ class CppFactory:
             source = f"{start} {{\n{body_text}\n}}"
         else:
             source = f"{start} {{}}"
-        return self._first(source, "function_definition").green
+        return self._fragment(self._first(source, "function_definition"))
 
-    @staticmethod
     def _region(
+        self,
         kind: str,
         begin: str,
         end: str,
-        body: Iterable[GreenElement],
-    ) -> GreenElement:
-        """按给定 begin/end 标记和 body 统一构造一对保护区域。
-        Construct one protected region from the given begin/end markers and body.
+        body: Iterable[SyntaxFragment],
+    ) -> SyntaxFragment:
+        """按 begin/end 标记构造保护区域。
+        Construct a protected region from begin/end markers and body fragments.
         """
         children: list[GreenChild] = [
             GreenChild(GreenToken("comment", begin, named=True)),
             GreenChild(GreenTrivia("newline", "\n")),
         ]
-        for element in body:
-            children.append(GreenChild(element))
+        for fragment in body:
+            children.append(GreenChild(fragment.green_for(self.language)))
             children.append(GreenChild(GreenTrivia("newline", "\n")))
         children.append(GreenChild(GreenToken("comment", end, named=True)))
-        return GreenNode(kind, tuple(children), named=True)
+        return SyntaxFragment(
+            self.language,
+            GreenNode(kind, tuple(children), named=True),
+        )
+
+    def _fragment(self, node: SyntaxNode) -> SyntaxFragment:
+        """把解析得到的节点包装成 C++ fragment。
+        Wrap one parsed node as a C++ syntax fragment.
+        """
+        return SyntaxFragment(self.language, node.green)
 
     def _first(self, source: str, kind: str) -> SyntaxNode:
-        """从临时解析结果中取得指定 kind 的第一个元素，缺失时抛出错误。
-        Return the first parsed element of the requested kind, raising an error when it is absent.
+        """返回临时解析结果中指定 kind 的第一个节点。
+        Return the first parsed node of the requested kind.
         """
         document = CppDocument.parse(source, parser=self.parser)
         nodes = document.nodes(kind)

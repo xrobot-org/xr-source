@@ -7,7 +7,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from xr_syntax.core import GreenElement
+from xr_syntax.core import SyntaxFragment
 from xr_syntax.format import Group, Indent, concat, hardline, join, render, softline, verbatim
 
 from .document import CppDocument
@@ -24,22 +24,22 @@ class CppBlockBuilder:
     Mutable convenience accumulator for constructing one C++ compound body.
     """
     factory: CppFactory
-    items: list[GreenElement] = field(default_factory=list)
+    items: list[SyntaxFragment] = field(default_factory=list)
 
-    def add(self, element: GreenElement) -> GreenElement:
+    def add(self, element: SyntaxFragment) -> SyntaxFragment:
         """把一个 green 元素追加到当前代码块构建器，并返回该元素。
         Append the element to this builder and return it.
         """
         self.items.append(element)
         return element
 
-    def statement(self, source: str) -> GreenElement:
+    def statement(self, source: str) -> SyntaxFragment:
         """创建并追加一条 C++ 语句。
         Create and append one statement.
         """
         return self.add(self.factory.statement(source))
 
-    def call(self, callee: str, arguments: Iterable[str] = ()) -> GreenElement:
+    def call(self, callee: str, arguments: Iterable[str] = ()) -> SyntaxFragment:
         """创建并追加一条函数调用语句。
         Create and append one call statement.
         """
@@ -52,7 +52,7 @@ class CppBlockBuilder:
         *,
         initializer: str | None = None,
         storage: Iterable[str] = (),
-    ) -> GreenElement:
+    ) -> SyntaxFragment:
         """创建并追加一条变量声明。
         Create and append one variable declaration.
         """
@@ -68,26 +68,26 @@ class CppBlockBuilder:
     def user_region(
         self,
         name: str,
-        body: Iterable[GreenElement] = (),
-    ) -> GreenElement:
+        body: Iterable[SyntaxFragment] = (),
+    ) -> SyntaxFragment:
         """创建并追加一组 User Code 保护区标记及其 body。
         Create or append a paired User Code region.
         """
         return self.add(self.factory.user_region(name, body))
 
-    def format_disabled(self, body: Iterable[GreenElement]) -> GreenElement:
+    def format_disabled(self, body: Iterable[SyntaxFragment]) -> SyntaxFragment:
         """创建并追加 clang-format off/on 保护区域。
         Create or append a clang-format disabled region.
         """
         return self.add(self.factory.format_region(body))
 
-    def lint_disabled(self, body: Iterable[GreenElement]) -> GreenElement:
+    def lint_disabled(self, body: Iterable[SyntaxFragment]) -> SyntaxFragment:
         """创建并追加 NOLINTBEGIN/NOLINTEND 保护区域。
         Create or append a NOLINT disabled region.
         """
         return self.add(self.factory.lint_region(body))
 
-    def raw(self, source: str) -> GreenElement:
+    def raw(self, source: str) -> SyntaxFragment:
         """追加一段不解释内部结构的原始 C++ 源码。
         Append or create opaque source text without interpreting its internal structure.
         """
@@ -119,7 +119,7 @@ class CppFunctionBuilder:
         self.parameters.append((cpp_type, name))
         return self
 
-    def build(self) -> GreenElement:
+    def build(self) -> SyntaxFragment:
         """通过布局 IR 渲染函数签名和 body，再解析成统一 green 语法元素。
         Render the signature/body through the layout IR and parse the result as C++ syntax.
         """
@@ -166,7 +166,7 @@ class CppFileBuilder:
     """
     factory: CppFactory = field(default_factory=CppFactory)
     header: bool = False
-    items: list[GreenElement | CppFunctionBuilder] = field(default_factory=list)
+    items: list[SyntaxFragment | CppFunctionBuilder] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """初始化底层 CppFactory，并在头文件模式下准备 pragma once。
@@ -175,44 +175,44 @@ class CppFileBuilder:
         if self.header:
             self.items.append(self.factory.directive("#pragma once"))
 
-    def add(self, element: GreenElement) -> GreenElement:
+    def add(self, element: SyntaxFragment) -> SyntaxFragment:
         """把一个 green 元素追加到文件构建器并原样返回。
         Append the element to this builder and return it.
         """
         self.items.append(element)
         return element
 
-    def include(self, header: str, *, system: bool = False) -> GreenElement:
+    def include(self, header: str, *, system: bool = False) -> SyntaxFragment:
         """创建并追加一条 include 指令。
         Create or append one include directive.
         """
         return self.add(self.factory.include(header, system=system))
 
-    def comment(self, text: str, *, block: bool = False) -> GreenElement:
+    def comment(self, text: str, *, block: bool = False) -> SyntaxFragment:
         """创建并追加一条源码注释。
         Append or create a source comment.
         """
         return self.add(self.factory.comment(text, block=block))
 
-    def raw(self, source: str) -> GreenElement:
+    def raw(self, source: str) -> SyntaxFragment:
         """追加一段不解释内部结构的原始 C++ 源码。
         Append or create opaque source text without interpreting its internal structure.
         """
         return self.add(self.factory.raw(source))
 
-    def format_disabled(self, body: Iterable[GreenElement]) -> GreenElement:
+    def format_disabled(self, body: Iterable[SyntaxFragment]) -> SyntaxFragment:
         """创建并追加 clang-format 禁用区域。
         Create or append a clang-format disabled region.
         """
         return self.add(self.factory.format_region(body))
 
-    def lint_disabled(self, body: Iterable[GreenElement]) -> GreenElement:
+    def lint_disabled(self, body: Iterable[SyntaxFragment]) -> SyntaxFragment:
         """创建并追加 NOLINT 禁用区域。
         Create or append a NOLINT disabled region.
         """
         return self.add(self.factory.lint_region(body))
 
-    def declaration(self, source: str) -> GreenElement:
+    def declaration(self, source: str) -> SyntaxFragment:
         """创建并追加一条顶层 C++ 声明。
         Create or append one declaration.
         """
@@ -225,7 +225,7 @@ class CppFileBuilder:
         *,
         initializer: str | None = None,
         storage: Iterable[str] = (),
-    ) -> GreenElement:
+    ) -> SyntaxFragment:
         """创建并追加一条顶层变量声明。
         Create and append one variable declaration.
         """
@@ -262,8 +262,8 @@ class CppFileBuilder:
     def user_region(
         self,
         name: str,
-        body: Iterable[GreenElement] = (),
-    ) -> GreenElement:
+        body: Iterable[SyntaxFragment] = (),
+    ) -> SyntaxFragment:
         """创建并追加一组 User Code 保护区域。
         Create or append a paired User Code region.
         """

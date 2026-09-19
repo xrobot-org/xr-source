@@ -10,6 +10,7 @@ from .grammar import (
     GrammarTypeRef,
     LanguageGrammar,
 )
+from .fragment import SyntaxFragment
 from .green import GreenChild, GreenElement, GreenNode, GreenToken, GreenTrivia
 from .parser_schema import ParserKindInfo, ParserSchema
 from .red import SyntaxElement, SyntaxNode, SyntaxToken, SyntaxTrivia
@@ -35,6 +36,7 @@ __all__ = [
     "SourcePoint",
     "SourceSpan",
     "SyntaxDocument",
+    "SyntaxFragment",
     "SyntaxElement",
     "SyntaxNode",
     "SyntaxParserProtocol",

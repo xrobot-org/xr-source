@@ -36,8 +36,8 @@ _BLOCKS = {
 
 
 class CMakeParser:
-    """解析 CMake，并保留全部源码字节。
-    Parse CMake while preserving every source byte.
+    """无损 CMake parser；parse 调用之间不共享可变状态。
+    Lossless CMake parser whose parse calls do not share mutable parsing state.
     """
 
     grammar = CMAKE_GRAMMAR

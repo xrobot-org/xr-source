@@ -7,7 +7,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from xr_syntax.core import GreenElement
+from xr_syntax.core import SyntaxFragment
 
 from .document import CMakeDocument
 from .factory import CMakeFactory
@@ -19,22 +19,22 @@ class CMakeFileBuilder:
     Top-level builder for complete CMake files using parser-backed fragments.
     """
     factory: CMakeFactory = field(default_factory=CMakeFactory)
-    items: list[GreenElement] = field(default_factory=list)
+    items: list[SyntaxFragment] = field(default_factory=list)
 
-    def add(self, element: GreenElement) -> GreenElement:
+    def add(self, element: SyntaxFragment) -> SyntaxFragment:
         """把一个语法元素追加到当前文件构建器，并返回该元素便于继续组合。
         Append the element to this builder and return it.
         """
         self.items.append(element)
         return element
 
-    def raw(self, source: str) -> GreenElement:
+    def raw(self, source: str) -> SyntaxFragment:
         """追加一段不解释内部结构的原始 CMake 源码。
         Append or create opaque source text without interpreting its internal structure.
         """
         return self.add(self.factory.raw(source))
 
-    def comment(self, text: str) -> GreenElement:
+    def comment(self, text: str) -> SyntaxFragment:
         """创建并追加一条 CMake 行注释。
         Append or create a source comment.
         """
@@ -44,7 +44,7 @@ class CMakeFileBuilder:
         self,
         name: str,
         arguments: Iterable[str] = (),
-    ) -> GreenElement:
+    ) -> SyntaxFragment:
         """创建并追加一个 CMake 命令。
         Create and append one command.
         """
@@ -53,8 +53,8 @@ class CMakeFileBuilder:
     def if_block(
         self,
         condition: Iterable[str],
-        body: Iterable[GreenElement],
-    ) -> GreenElement:
+        body: Iterable[SyntaxFragment],
+    ) -> SyntaxFragment:
         """创建并追加一个完整的 if()/endif() 条件块。
         Create and append one complete conditional block.
         """

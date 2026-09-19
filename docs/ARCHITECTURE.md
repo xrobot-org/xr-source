@@ -56,3 +56,20 @@ The layout IR controls wrapping and indentation for generated text. `render()` r
 
 需要名称解析、类型信息或重载结果时，可以在 syntax tree 之上接编译器或项目自己的 semantic provider。  
 Name resolution, type information, and overload results can be supplied by a compiler or project-specific semantic provider layered above the syntax tree.
+
+## 编辑与快照契约 / Edit and Snapshot Contract
+
+低层 `SyntaxTree` 编辑只接受当前语言的 `SyntaxElement` 或带语言归属的 `SyntaxFragment`。同语言 fragment 可以来自其他快照；跨语言 fragment 会被拒绝，裸 `GreenElement` 不属于公共编辑接口。  
+Low-level `SyntaxTree` edits accept `SyntaxElement` or language-tagged `SyntaxFragment` values for the same language. Same-language fragments may come from another snapshot; cross-language fragments are rejected, and bare `GreenElement` values are not part of the public edit API.
+
+低层编辑后 `diagnostics` 为 `None`，`diagnostic_state` 为 `unknown`。`CppDocument`/`CMakeDocument` 高层编辑会重新解析，因此返回文档的 diagnostics 再次可信。  
+After a low-level edit, `diagnostics` is `None` and `diagnostic_state` is `unknown`. High-level `CppDocument` and `CMakeDocument` edits reparse the result, restoring authoritative diagnostics.
+
+red view 绑定创建它的 immutable snapshot。编辑不会修改旧 view；旧 view 仍可读取，但不能作为新 snapshot 的 target。  
+A red view belongs to the immutable snapshot that created it. Edits do not mutate old views; they remain readable but cannot be used as targets in a newer snapshot.
+
+`CppParser` 和 `CMakeParser` 只保存不可变 schema；每次 `parse()` 使用局部解析状态，因此同一 parser 实例可并发复用。  
+`CppParser` and `CMakeParser` keep only immutable schema state; each `parse()` call uses local parsing state, so one parser instance may be shared across concurrent parse calls.
+
+C++ typed views 返回 syntax fields 推导出的源码级文本。类型绑定、重载结果等语义信息由上层 semantic provider 提供。  
+C++ typed views expose source-level text derived from syntax fields. Type binding, overload results, and other semantic information belong to a higher-level semantic provider.

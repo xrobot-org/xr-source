@@ -101,10 +101,11 @@ class CppDocument(SyntaxDocument):
         )
 
     def replace_region_body(self, region: CppRegion, body: str) -> CppDocument:
-        """只替换成对区域标记之间的源码字节，并重新解析整个文档。
-        Replace only the bytes between a paired region marker and reparse the result.
+        """替换当前文档中一个已验证区域的 body。
+        Replace the body of a validated region owned by this document snapshot.
         """
         source = self.render_bytes()
+        self._validate_region(region, len(source))
         replacement = encode_source(body)
         changed = (
             source[: region.body_span.start]
@@ -112,6 +113,18 @@ class CppDocument(SyntaxDocument):
             + source[region.body_span.end :]
         )
         return self._reparse(changed)
+
+    def _validate_region(self, region: CppRegion, source_size: int) -> None:
+        """确认 region 属于当前快照且 body span 与 marker 一致。
+        Verify region ownership and ensure its body span matches the paired markers.
+        """
+        if region.begin.tree is not self.tree or region.end.tree is not self.tree:
+            raise ValueError("region belongs to a different immutable syntax snapshot")
+        expected = SourceSpan(region.begin.span.end, region.end.span.start)
+        if region.body_span != expected:
+            raise ValueError("region body span does not match its begin/end markers")
+        if region.body_span.end > source_size:
+            raise ValueError("region body span exceeds the current source range")
 
     def includes(self) -> tuple[SyntaxNode, ...]:
         """按源码顺序返回原始 preproc_include 节点。
@@ -176,11 +189,8 @@ class CppDocument(SyntaxDocument):
         """
         return tuple(CppCallView(node) for node in self.calls(name))
 
-    # 多种声明形式会落到同一个通用 declaration node。这里仅筛选明显的
-    # 变量 declarator，不试图复刻编译器完整的声明语义。
-    # Tree-sitter represents several declaration forms through the same generic
-    # declaration node. This helper narrows only obvious variable declarators;
-    # it is not intended to reproduce the compiler's declaration semantics.
+    # declaration 视图只按当前 syntax fields 识别变量 declarator。
+    # Declaration views classify variable declarators from the current syntax fields.
     def variable_views(
         self,
         name: str | None = None,
@@ -266,11 +276,15 @@ class CppDocument(SyntaxDocument):
             end_match = end.fullmatch(comment.text.strip())
             if not end_match or not stack:
                 continue
-            start, name = stack.pop()
-            if end_match.lastindex and name is not None:
-                end_name = end_match.group(1).strip()
-                if end_name != name:
-                    continue
+            start, name = stack[-1]
+            end_name = (
+                end_match.group(1).strip()
+                if end_match.lastindex and end_match.group(1) is not None
+                else None
+            )
+            if end_name != name:
+                continue
+            stack.pop()
             body = SourceSpan(start.span.end, comment.span.start)
             regions.append(
                 CppRegion(
@@ -285,4 +299,4 @@ class CppDocument(SyntaxDocument):
                     ),
                 )
             )
-        return tuple(regions)
+        return tuple(sorted(regions, key=lambda region: region.begin.span.start))

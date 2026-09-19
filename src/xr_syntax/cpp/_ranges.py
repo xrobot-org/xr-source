@@ -77,20 +77,23 @@ class _RangeMixin(_ParserSupport):
         return None if best is None else best[1]
 
     def _find_unit_end(self, start: int, end: int, *, context: str) -> int:
-        """寻找一个顶层声明/语句的结束 lexeme 位置。
-        Find the end of one top-level declaration or statement unit.
+        """从当前 unit 起点向后扫描到顶层声明/语句边界。
+        Scan forward from one unit start until its top-level declaration/statement boundary.
         """
-        significant = self._significant(start, end)
-        if not significant:
+        first = self._next_significant(start, end)
+        if first is None:
             return end
-        first_text = self.lexemes[significant[0]].text
+        first_text = self.lexemes[first].text
 
         if first_text in _CONTROL | {"do"}:
-            return self._control_unit_end(significant[0], end)
+            return self._control_unit_end(first, end)
 
         depth_round = depth_square = 0
-        for index in significant:
-            text = self.lexemes[index].text
+        for index in range(first, min(end, len(self.lexemes))):
+            item = self.lexemes[index]
+            if item.trivia or item.kind == "comment":
+                continue
+            text = item.text
             if text == "(":
                 depth_round += 1
             elif text == ")":

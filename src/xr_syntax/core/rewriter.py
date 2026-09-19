@@ -13,11 +13,13 @@ class SyntaxRewriter:
     Functional green-tree rewriter.
     """
     def rewrite(self, tree: SyntaxTree) -> SyntaxTree:
-        """重写整棵树并返回保留语言、诊断和源码身份的新快照。
-        Rewrite a tree and return a new snapshot with the same language/source metadata.
+        """重写整棵树；发生修改时将 diagnostics 标记为未知。
+        Rewrite a tree and mark diagnostics unknown when the green root changes.
         """
         root = self.visit_node(tree.green_root)
-        return SyntaxTree(tree.language, root, tree.diagnostics, tree.source_name)
+        if root is tree.green_root:
+            return tree
+        return SyntaxTree(tree.language, root, None, tree.source_name)
 
     def visit_node(self, node: GreenNode) -> GreenNode:
         """递归重写 children，仅在至少一个 child 改变时重建当前 GreenNode。

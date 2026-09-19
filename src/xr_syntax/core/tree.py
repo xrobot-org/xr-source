@@ -8,6 +8,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from .diagnostic import Diagnostic
+from .fragment import SyntaxFragment
 from .green import GreenChild, GreenElement, GreenNode, GreenTrivia
 from .red import SyntaxElement, SyntaxNode
 from .text import encode_source
@@ -20,7 +21,7 @@ class SyntaxTree:
     """
     language: str
     green_root: GreenNode
-    diagnostics: tuple[Diagnostic, ...] = ()
+    diagnostics: tuple[Diagnostic, ...] | None = ()
     source_name: str | None = None
 
     @property
@@ -37,6 +38,15 @@ class SyntaxTree:
             field=None,
         )
 
+    @property
+    def diagnostic_state(self) -> str:
+        """返回 clean、diagnosed 或 unknown 三种诊断状态。
+        Return the diagnostic state: clean, diagnosed, or unknown.
+        """
+        if self.diagnostics is None:
+            return "unknown"
+        return "diagnosed" if self.diagnostics else "clean"
+
     def render(self) -> str:
         """按 green root 原样渲染完整源码文本。
         Render the complete represented source without normalization.
@@ -52,13 +62,13 @@ class SyntaxTree:
     def replace(
         self,
         target: SyntaxElement,
-        replacement: SyntaxElement | GreenElement,
+        replacement: SyntaxElement | SyntaxFragment,
     ) -> SyntaxTree:
         """持久化替换一个元素，仅重建目标到根路径上的节点。
         Persistently replace one element, reusing unaffected green subtrees.
         """
         self._check_target(target)
-        green = replacement.green if isinstance(replacement, SyntaxElement) else replacement
+        green = self._coerce_insertable(replacement)
         if not target.path:
             if not isinstance(green, GreenNode):
                 raise TypeError("syntax tree root must remain a GreenNode")
@@ -77,17 +87,17 @@ class SyntaxTree:
     def insert_before(
         self,
         target: SyntaxElement,
-        element: SyntaxElement | GreenElement,
+        element: SyntaxElement | SyntaxFragment,
         *,
         separator: str = "",
     ) -> SyntaxTree:
-        """在非根目标元素前持久化插入一个或多个元素。
-        Persistently insert elements before a non-root target.
+        """在非根目标元素前持久化插入一个元素。
+        Persistently insert one element before a non-root target.
         """
         self._check_target(target)
         if not target.path:
             raise ValueError("cannot insert beside the syntax tree root")
-        green = element.green if isinstance(element, SyntaxElement) else element
+        green = self._coerce_insertable(element)
         additions: list[GreenElement] = [green]
         if separator:
             additions.append(GreenTrivia("raw", separator))
@@ -98,17 +108,17 @@ class SyntaxTree:
     def insert_after(
         self,
         target: SyntaxElement,
-        element: SyntaxElement | GreenElement,
+        element: SyntaxElement | SyntaxFragment,
         *,
         separator: str = "",
     ) -> SyntaxTree:
-        """在非根目标元素后持久化插入一个或多个元素。
-        Persistently insert elements after a non-root target.
+        """在非根目标元素后持久化插入一个元素。
+        Persistently insert one element after a non-root target.
         """
         self._check_target(target)
         if not target.path:
             raise ValueError("cannot insert beside the syntax tree root")
-        green = element.green if isinstance(element, SyntaxElement) else element
+        green = self._coerce_insertable(element)
         additions: list[GreenElement] = []
         if separator:
             additions.append(GreenTrivia("raw", separator))
@@ -118,20 +128,41 @@ class SyntaxTree:
         )
 
     def _check_target(self, target: SyntaxElement) -> None:
-        """确认待编辑 red 元素确实属于当前 SyntaxTree 快照。
-        Verify that the red element being edited belongs to this SyntaxTree snapshot.
+        """确认待编辑 red 元素属于当前 SyntaxTree 快照。
+        Verify that the edited red element belongs to this SyntaxTree snapshot.
         """
         if target.tree is not self:
             raise ValueError("target belongs to a different immutable syntax snapshot")
 
+    def _coerce_insertable(
+        self,
+        value: SyntaxElement | SyntaxFragment,
+    ) -> GreenElement:
+        """取得可插入 green 元素并校验语言归属。
+        Resolve an insertable green element and validate its language provenance.
+        """
+        if isinstance(value, SyntaxElement):
+            if value.tree.language != self.language:
+                raise ValueError(
+                    f"element language {value.tree.language!r} does not match tree language "
+                    f"{self.language!r}"
+                )
+            return value.green
+        if isinstance(value, SyntaxFragment):
+            return value.green_for(self.language)
+        raise TypeError(
+            "low-level edits accept SyntaxElement or SyntaxFragment; "
+            "wrap generated/raw green data in SyntaxFragment with an explicit language"
+        )
+
     def _with_root(self, root: GreenNode) -> SyntaxTree:
-        """用新 green root 构造保留语言和源码身份的新 SyntaxTree。
-        Create a new SyntaxTree with the supplied green root while preserving language and source identity.
+        """用新 green root 构造诊断状态未知的新 SyntaxTree。
+        Create a new SyntaxTree whose diagnostics are unknown until reparsed.
         """
         return SyntaxTree(
             language=self.language,
             green_root=root,
-            diagnostics=(),
+            diagnostics=None,
             source_name=self.source_name,
         )
 

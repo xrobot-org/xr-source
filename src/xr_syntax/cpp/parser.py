@@ -25,8 +25,8 @@ from .lexer import _PUNCTUATORS, _QUALIFIERS, _STORAGE, _TYPE_WORDS, _Lexeme, _L
 
 
 class CppParser:
-    """不依赖第三方 parser runtime 的 lossless C++ source parser。
-    Lossless C++ source parser with no third-party parser-runtime dependency.
+    """无损 C++ source parser；parse 调用之间不共享可变状态。
+    Lossless C++ parser whose parse calls do not share mutable parsing state.
     """
 
     grammar = CPP_GRAMMAR

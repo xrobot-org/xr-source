@@ -8,7 +8,7 @@ from typing import ClassVar, Protocol, TypeVar
 
 from .diagnostic import Diagnostic
 from .grammar import GrammarNodeSpec, LanguageGrammar
-from .green import GreenElement
+from .fragment import SyntaxFragment
 from .red import SyntaxElement, SyntaxNode, SyntaxToken
 from .tree import SyntaxTree
 
@@ -69,10 +69,13 @@ class SyntaxDocument:
 
     @property
     def diagnostics(self) -> tuple[Diagnostic, ...]:
-        """返回当前不可变快照在解析时产生的诊断。
-        Return parser diagnostics captured for this immutable snapshot.
+        """返回当前已解析文档的诊断。
+        Return diagnostics for this parsed document snapshot.
         """
-        return self.tree.diagnostics
+        diagnostics = self.tree.diagnostics
+        if diagnostics is None:
+            raise RuntimeError("document diagnostics are unknown; reparse the syntax tree first")
+        return diagnostics
 
     def render(self) -> str:
         """按语法树中保存的源码内容原样渲染文本，不执行格式化。
@@ -99,7 +102,7 @@ class SyntaxDocument:
     def replace(
         self: DocumentT,
         target: SyntaxElement,
-        replacement: SyntaxElement | GreenElement,
+        replacement: SyntaxElement | SyntaxFragment,
     ) -> DocumentT:
         """替换一个语法元素，重新解析结果并返回新的文档快照。
         Replace one element and return a new reparsed document snapshot.
@@ -115,7 +118,7 @@ class SyntaxDocument:
     def insert_before(
         self: DocumentT,
         target: SyntaxElement,
-        element: SyntaxElement | GreenElement,
+        element: SyntaxElement | SyntaxFragment,
         *,
         separator: str = "",
     ) -> DocumentT:
@@ -128,7 +131,7 @@ class SyntaxDocument:
     def insert_after(
         self: DocumentT,
         target: SyntaxElement,
-        element: SyntaxElement | GreenElement,
+        element: SyntaxElement | SyntaxFragment,
         *,
         separator: str = "",
     ) -> DocumentT:
