@@ -6,6 +6,12 @@ from .builder import CppBlockBuilder, CppFileBuilder, CppFunctionBuilder
 from .document import CppDocument, CppRegion
 from .factory import CppFactory
 from .grammar import CPP_GRAMMAR, GRAMMAR_REVISION, GRAMMAR_VERSION
+from .invocation import (
+    CppIdentifierOccurrence,
+    CppInvocationView,
+    identifier_occurrences,
+    split_source_list,
+)
 from .parser import CppParser
 from .view import (
     CppCallView,
@@ -27,12 +33,15 @@ __all__ = [
     "CppFileBuilder",
     "CppFunctionBuilder",
     "CppFunctionView",
+    "CppIdentifierOccurrence",
     "CppIncludeView",
     "CppInvocationView",
     "CppParameterView",
     "CppParser",
     "CppTemplateParameterView",
     "CppVariableView",
+    "split_source_list",
+    "identifier_occurrences",
     "split_source_list",
     "GRAMMAR_REVISION",
     "GRAMMAR_VERSION",

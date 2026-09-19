@@ -1,6 +1,8 @@
 """验证 C++ 常用结构查询和 User Code 区域识别。
 Test common C++ structure queries and User Code region detection.
 """
+
+import pytest
 from xr_syntax.cpp import CppDocument
 
 SOURCE = """
@@ -59,4 +61,35 @@ def test_lexical_invocation_views_support_macro_type_lists() -> None:
     assert [(item.arguments, item.line) for item in invocations] == [
         (("array", "std::array<int, 2>"), 3),
         (("ref", "Type&"), 4),
+    ]
+
+
+def test_source_list_reports_unbalanced_nesting() -> None:
+    """验证公开源码列表切分会拒绝未闭合的嵌套结构。
+    Verify that public source-list splitting rejects unclosed nesting.
+    """
+    from xr_syntax.cpp import split_source_list
+
+    with pytest.raises(ValueError, match="unbalanced"):
+        split_source_list("a, std::array<int, 2", template_angles=True)
+
+
+def test_identifier_occurrences_ignore_literals_comments_and_directives() -> None:
+    """验证 identifier occurrence 只返回实际代码中的标识符。
+    Verify that identifier occurrences ignore literals, comments, and directives.
+    """
+    from xr_syntax.cpp import identifier_occurrences
+
+    source = (
+        "#define USE(x) x \\\n  dev\n"
+        'f(dev, obj.dev, ptr->dev, ns::dev, dev::constant, "dev"); // dev\n'
+    )
+    items = [item for item in identifier_occurrences(source) if item.text == "dev"]
+    assert len(items) == 5
+    assert [(item.qualified_left, item.scope_root) for item in items] == [
+        (False, False),
+        (True, False),
+        (True, False),
+        (True, False),
+        (False, True),
     ]

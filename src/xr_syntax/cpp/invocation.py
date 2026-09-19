@@ -37,15 +37,47 @@ class CppInvocationView:
         return self.tree.render_bytes()[: self.span.start].count(b"\n") + 1
 
 
+@dataclass(frozen=True)
+class CppIdentifierOccurrence:
+    """表示一个源码 identifier 及相邻有效 token。
+    Source identifier occurrence with adjacent significant-token spellings.
+    """
+
+    text: str
+    span: SourceSpan
+    previous: str | None
+    following: str | None
+
+    @property
+    def qualified_left(self) -> bool:
+        """判断 identifier 左侧是否通过成员或作用域运算符限定。
+        Return whether the identifier is qualified from the left.
+        """
+        return self.previous in (".", "->", ".*", "->*", "::")
+
+    @property
+    def scope_root(self) -> bool:
+        """判断 identifier 是否作为作用域限定符的根。
+        Return whether the identifier is followed by a scope-resolution operator.
+        """
+        return self.following == "::"
+
+
 def split_source_list(source: str, *, template_angles: bool = False) -> tuple[str, ...]:
     """按顶层逗号切分源码列表，并按需把模板角括号视为嵌套。
     Split source on top-level commas, optionally treating template angles as nesting.
     """
-    lexemes, _ = _Lexer(source).scan()
+    lexemes, diagnostics = _Lexer(source).scan()
+    if diagnostics:
+        raise ValueError(diagnostics[0].message)
     significant = [item for item in lexemes if not item.trivia and item.kind != "comment"]
     if not significant:
         return ()
-    separators = _top_level_commas(significant, template_angles=template_angles)
+    separators, balanced = _top_level_commas(
+        significant, template_angles=template_angles
+    )
+    if not balanced:
+        raise ValueError("unbalanced C++ source list")
     encoded = source.encode("utf-8", errors="surrogateescape")
     result = []
     start = 0
@@ -59,6 +91,38 @@ def split_source_list(source: str, *, template_angles: bool = False) -> tuple[st
     if not text:
         raise ValueError("empty argument in C++ source list")
     result.append(text)
+    return tuple(result)
+
+
+def identifier_occurrences(source: str) -> tuple[CppIdentifierOccurrence, ...]:
+    """返回代码中的 identifier occurrence，忽略注释和预处理逻辑行。
+    Return identifier occurrences outside comments and preprocessor logical lines.
+    """
+    lexemes, diagnostics = _Lexer(source).scan()
+    if diagnostics:
+        raise ValueError(diagnostics[0].message)
+    significant = [
+        (index, item)
+        for index, item in enumerate(lexemes)
+        if not item.trivia
+        and item.kind != "comment"
+        and not _inside_preprocessor(lexemes, index)
+    ]
+    result = []
+    for position, (_, item) in enumerate(significant):
+        if item.kind != "identifier":
+            continue
+        previous = significant[position - 1][1].text if position else None
+        following = (
+            significant[position + 1][1].text
+            if position + 1 < len(significant)
+            else None
+        )
+        result.append(
+            CppIdentifierOccurrence(
+                item.text, SourceSpan(item.start, item.end), previous, following
+            )
+        )
     return tuple(result)
 
 
@@ -132,13 +196,19 @@ def _matching_paren(lexemes: list[_Lexeme], opening: int) -> int | None:
 
 
 def _inside_preprocessor(lexemes: list[_Lexeme], index: int) -> bool:
-    """判断 lexeme 是否位于预处理逻辑行。
-    Return whether a lexeme belongs to a preprocessor logical line.
+    """判断 lexeme 是否位于预处理逻辑行，包括反斜杠续行。
+    Return whether a lexeme belongs to a preprocessor logical line, including continuations.
     """
     cursor = index - 1
     while cursor >= 0:
         item = lexemes[cursor]
         if item.trivia and ("\n" in item.text or "\r" in item.text):
+            previous = cursor - 1
+            while previous >= 0 and lexemes[previous].trivia:
+                previous -= 1
+            if previous >= 0 and lexemes[previous].text == "\\":
+                cursor = previous - 1
+                continue
             break
         if not item.trivia and item.kind != "comment" and item.text == "#":
             return True
@@ -150,9 +220,9 @@ def _top_level_commas(
     items: list[_Lexeme],
     *,
     template_angles: bool,
-) -> list[_Lexeme]:
-    """返回不处于括号或模板角括号内的逗号 lexeme。
-    Return commas outside delimiter nesting and optional template-angle nesting.
+) -> tuple[list[_Lexeme], bool]:
+    """返回顶层逗号以及列表分隔符是否平衡。
+    Return top-level commas together with delimiter-balance state.
     """
     result = []
     round_depth = square_depth = brace_depth = angle_depth = 0
@@ -170,7 +240,11 @@ def _top_level_commas(
             brace_depth += 1
         elif text == "}":
             brace_depth = max(0, brace_depth - 1)
-        elif template_angles and text == "<":
+        elif (
+            template_angles
+            and text == "<"
+            and not (round_depth or square_depth or brace_depth)
+        ):
             angle_depth += 1
         elif template_angles and text == ">" and angle_depth:
             angle_depth -= 1
@@ -178,4 +252,4 @@ def _top_level_commas(
             angle_depth = max(0, angle_depth - 2)
         elif text == "," and not (round_depth or square_depth or brace_depth or angle_depth):
             result.append(item)
-    return result
+    return result, not (round_depth or square_depth or brace_depth or angle_depth)
