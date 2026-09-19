@@ -14,6 +14,7 @@ from xr_syntax.core import (
     ParserSchema,
     SyntaxTree,
     decode_source,
+    encode_source,
 )
 
 from ._declaration import _DeclarationMixin
@@ -67,7 +68,7 @@ class CppParser:
         """解析源码并保证结果可逐字节还原。
         Parse source text or bytes into the corresponding immutable syntax representation.
         """
-        data = source.encode("utf-8") if isinstance(source, str) else bytes(source)
+        data = encode_source(source) if isinstance(source, str) else bytes(source)
         text = decode_source(data)
         lexer = _Lexer(text)
         lexemes, diagnostics = lexer.scan()

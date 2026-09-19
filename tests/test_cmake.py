@@ -177,3 +177,13 @@ def test_cmake_builder_require_clean_controls_generation_diagnostics() -> None:
     strict.raw("if(FOO)\n")
     with pytest.raises(ValueError, match="generated CMake source"):
         strict.build(require_clean=True)
+
+
+def test_cmake_surrogateescaped_text_input_roundtrips_losslessly() -> None:
+    """验证 CMake 对 surrogateescape str 输入也保持原始字节。
+    Verify lossless CMake round-trip for surrogateescaped str input.
+    """
+    source = b'# byte: \xff\nproject(Demo)\n'
+    text = source.decode("utf-8", errors="surrogateescape")
+    document = CMakeDocument.parse(text)
+    assert document.render_bytes() == source

@@ -90,7 +90,7 @@ class CMakeParser:
         """解析 CMake 源码。
         Parse CMake source into an immutable syntax tree.
         """
-        data = source.encode("utf-8") if isinstance(source, str) else bytes(source)
+        data = encode_source(source) if isinstance(source, str) else bytes(source)
         text = decode_source(data)
         parser = _CMakeStructuralParser(text)
         root = parser.parse()
