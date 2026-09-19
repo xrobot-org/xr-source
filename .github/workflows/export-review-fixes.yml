@@ -1,0 +1,27 @@
+name: export-review-fixes
+
+on:
+  push:
+    branches:
+      - feat/source-model-20260918
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: review-fixes-base
+          if-no-files-found: error
+          path: |
+            README.md
+            docs
+            pyproject.toml
+            src
+            tests
+            tools
+            .github/workflows/test.yml
