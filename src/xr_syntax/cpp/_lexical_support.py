@@ -11,7 +11,7 @@ def _inside_preprocessor(lexemes: list[_Lexeme], index: int) -> bool:
     """判断 lexeme 是否位于预处理逻辑行，包括反斜杠续行。
     Return whether a lexeme belongs to a preprocessor logical line, including continuations.
     """
-    cursor = index - 1
+    cursor = index
     while cursor >= 0:
         item = lexemes[cursor]
         if item.trivia and ("\n" in item.text or "\r" in item.text):
