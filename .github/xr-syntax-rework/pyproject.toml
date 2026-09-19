@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xr-syntax"
+version = "0.1.0"
+description = "Structured C++ and CMake parsing, rewriting, and code generation for XRobot tooling."
+requires-python = ">=3.8"
+authors = [
+    {name = "Xiao", email = "2592509183@qq.com"}
+]
+maintainers = [
+    {name = "Xiao", email = "2592509183@qq.com"}
+]
+readme = "README.md"
+license = {text = "Apache-2.0"}
+keywords = ["C++", "CMake", "source transformation", "code generation", "XRobot"]
+dependencies = []
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/xrobot-org/xr-source"
+Repository = "https://github.com/xrobot-org/xr-source"
+"Bug Tracker" = "https://github.com/xrobot-org/xr-source/issues"
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.2",
+    "pytest>=8",
+    "ruff>=0.12",
+    "mypy>=1.15",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+xr_syntax = [
+    "py.typed",
+    "cmake/grammar/*.json",
+    "cmake/grammar/LICENSE.*",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.8"
+strict = true
+packages = ["xr_syntax"]
