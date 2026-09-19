@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from xr_syntax.core import SourceSpan, SyntaxTree, decode_source
 
-from .lexer import _Lexer, _Lexeme
+from .lexer import _Lexeme, _Lexer
 
 
 @dataclass(frozen=True)
