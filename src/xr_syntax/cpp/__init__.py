@@ -40,7 +40,6 @@ __all__ = [
     "CppParser",
     "CppTemplateParameterView",
     "CppVariableView",
-    "split_source_list",
     "identifier_occurrences",
     "split_source_list",
     "GRAMMAR_REVISION",
