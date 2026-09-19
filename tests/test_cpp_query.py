@@ -3,6 +3,7 @@ Test common C++ structure queries and User Code region detection.
 """
 
 import pytest
+
 from xr_syntax.cpp import CppDocument
 
 SOURCE = """
