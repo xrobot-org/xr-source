@@ -3,6 +3,7 @@ Test the native C++ grammar contract, field constraints, and subtype classificat
 """
 
 from __future__ import annotations
+
 from xr_syntax.cpp import CPP_GRAMMAR, CppParser
 
 

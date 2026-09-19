@@ -66,6 +66,7 @@ target-version = "py38"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501", "UP006", "UP045"]
 
 [tool.mypy]
 python_version = "3.8"

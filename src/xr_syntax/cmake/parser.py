@@ -5,7 +5,7 @@ CMake source parser.
 from __future__ import annotations
 
 import re
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 from xr_syntax.core import (
     Diagnostic,
