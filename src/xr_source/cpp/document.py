@@ -1,4 +1,7 @@
-"""提供 C++ 高层查询、类型化视图入口以及受保护源码区域的编辑能力。"""
+"""提供 C++ 高层查询、类型化视图入口以及受保护源码区域的编辑能力。
+
+High-level C++ document queries and protected-region editing helpers.
+"""
 
 from __future__ import annotations
 
@@ -27,11 +30,15 @@ from .view import (
 
 # ---------------------------------------------------------------------------
 # 受保护源码区域
+# EN: Protected source regions
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True, slots=True)
 class CppRegion:
-    """表示由成对标记界定的源码保护区域，例如 User Code、clang-format 或 NOLINT。"""
+    """表示由成对标记界定的源码保护区域，例如 User Code、clang-format 或 NOLINT。
+
+    Paired source-marker region such as User Code, clang-format or NOLINT.
+    """
     kind: str
     name: str | None
     begin: SyntaxElement
@@ -42,6 +49,7 @@ class CppRegion:
 
 # ---------------------------------------------------------------------------
 # C++ 文档查询
+# EN: C++ document queries
 # ---------------------------------------------------------------------------
 
 class CppDocument(SyntaxDocument):
@@ -49,6 +57,11 @@ class CppDocument(SyntaxDocument):
 
     包括源码级查询、保护区编辑和类型化视图入口；只处理语法结构，
     不做名称查找、重载决议或类型推导。
+
+    C++-specific query/edit facade over the complete generic syntax tree.
+
+    This layer may classify source structure, but it intentionally does not perform
+    name lookup, overload resolution, template instantiation or type inference.
     """
     __slots__ = ()
 
@@ -63,7 +76,10 @@ class CppDocument(SyntaxDocument):
         source_name: str | None = None,
         parser: CppParser | None = None,
     ) -> CppDocument:
-        """使用 xr-source 原生 C++ parser 解析源码并保留 source_name。"""
+        """使用 xr-source 原生 C++ parser 解析源码并保留 source_name。
+
+        Parse C++ source with the validated default parser while preserving source identity.
+        """
         selected = parser or CppParser()
         return cls(
             selected.parse(source, source_name=source_name),
@@ -71,7 +87,10 @@ class CppDocument(SyntaxDocument):
         )
 
     def is_expression(self, element: SyntaxElement) -> bool:
-        """依据 C++ grammar subtype 图判断元素是否属于 expression。"""
+        """依据 C++ grammar subtype 图判断元素是否属于 expression。
+
+        Classify an element through the packaged grammar subtype graph.
+        """
         if not isinstance(element, (SyntaxNode, SyntaxToken)):
             return False
         return self.grammar.is_subtype(
@@ -81,7 +100,10 @@ class CppDocument(SyntaxDocument):
         )
 
     def is_statement(self, element: SyntaxElement) -> bool:
-        """依据 C++ grammar subtype 图判断元素是否属于 statement。"""
+        """依据 C++ grammar subtype 图判断元素是否属于 statement。
+
+        Classify an element through the packaged grammar subtype graph.
+        """
         if not isinstance(element, (SyntaxNode, SyntaxToken)):
             return False
         return self.grammar.is_subtype(
@@ -91,7 +113,10 @@ class CppDocument(SyntaxDocument):
         )
 
     def replace_region_body(self, region: CppRegion, body: str) -> CppDocument:
-        """只替换成对区域标记之间的源码字节，并重新解析整个文档。"""
+        """只替换成对区域标记之间的源码字节，并重新解析整个文档。
+
+        Replace only the bytes between a paired region marker and reparse the result.
+        """
         source = self.render_bytes()
         replacement = encode_source(body)
         changed = (
@@ -102,59 +127,95 @@ class CppDocument(SyntaxDocument):
         return self._reparse(changed)
 
     def includes(self) -> tuple[SyntaxNode, ...]:
-        """按源码顺序返回原始 preproc_include 节点。"""
+        """按源码顺序返回原始 preproc_include 节点。
+
+        Return raw preprocessor include syntax nodes.
+        """
         return self.nodes("preproc_include")
 
     def include_views(self) -> tuple[CppIncludeView, ...]:
-        """为全部 include 节点创建 CppIncludeView。"""
+        """为全部 include 节点创建 CppIncludeView。
+
+        Return typed convenience views for all include directives.
+        """
         return tuple(CppIncludeView(node) for node in self.includes())
 
     def comments(self) -> tuple[SyntaxElement, ...]:
-        """按源码顺序返回 parser 识别的注释元素。"""
+        """按源码顺序返回 parser 识别的注释元素。
+
+        Return parser comment elements in source order.
+        """
         return self.elements("comment")
 
     def functions(self, name: str | None = None) -> tuple[SyntaxNode, ...]:
-        """返回函数定义，并可按源码级函数名过滤。"""
+        """返回函数定义，并可按源码级函数名过滤。
+
+        Return function definitions, optionally filtered by source-level name.
+        """
         nodes = self.nodes("function_definition")
         if name is None:
             return nodes
         return tuple(node for node in nodes if declaration_name(node) == name)
 
     def classes(self, name: str | None = None) -> tuple[SyntaxNode, ...]:
-        """返回 class/struct 定义，并可按源码级名称过滤。"""
+        """返回 class/struct 定义，并可按源码级名称过滤。
+
+        Return class/struct specifiers, optionally filtered by source-level name.
+        """
         nodes = self.nodes("class_specifier") + self.nodes("struct_specifier")
         if name is None:
             return nodes
         return tuple(node for node in nodes if field_text(node, "name") == name)
 
     def calls(self, name: str | None = None) -> tuple[SyntaxNode, ...]:
-        """返回调用表达式，并可按精确 callee 源码文本过滤。"""
+        """返回调用表达式，并可按精确 callee 源码文本过滤。
+
+        Return call expressions, optionally filtered by exact callee source text.
+        """
         nodes = self.nodes("call_expression")
         if name is None:
             return nodes
         return tuple(node for node in nodes if field_text(node, "function") == name)
 
     def function_views(self, name: str | None = None) -> tuple[CppFunctionView, ...]:
-        """把匹配的函数节点包装为 CppFunctionView。"""
+        """把匹配的函数节点包装为 CppFunctionView。
+
+        Wrap matching function definitions in CppFunctionView.
+        """
         return tuple(CppFunctionView(node) for node in self.functions(name))
 
     def class_views(self, name: str | None = None) -> tuple[CppClassView, ...]:
-        """把匹配的类节点包装为 CppClassView。"""
+        """把匹配的类节点包装为 CppClassView。
+
+        Wrap matching class or struct specifiers in CppClassView.
+        """
         return tuple(CppClassView(node) for node in self.classes(name))
 
     def call_views(self, name: str | None = None) -> tuple[CppCallView, ...]:
-        """把匹配的调用节点包装为 CppCallView。"""
+        """把匹配的调用节点包装为 CppCallView。
+
+        Wrap matching call expressions in CppCallView.
+        """
         return tuple(CppCallView(node) for node in self.calls(name))
 
     # 多种声明形式会落到同一个通用 declaration node。这里仅筛选明显的
     # 变量 declarator，不试图复刻编译器完整的声明语义。
+    # EN: Tree-sitter represents several declaration forms through the same generic
+    # EN: declaration node. This helper narrows only obvious variable declarators;
+    # EN: it is not intended to reproduce the compiler's declaration semantics.
     def variable_views(
         self,
         name: str | None = None,
         *,
         global_scope: bool | None = None,
     ) -> tuple[CppVariableView, ...]:
-        """返回变量声明视图，并可按全局/局部作用域过滤。"""
+        """返回变量声明视图，并可按全局/局部作用域过滤。
+
+        Return variable-like declarations, optionally filtered by name and lexical scope.
+
+        Function declarators are explicitly excluded; this is a convenience source view,
+        not compiler-level declaration classification.
+        """
         result: list[CppVariableView] = []
         for declaration in self.nodes("declaration"):
             for declarator in declaration.children_by_field("declarator"):
@@ -172,12 +233,18 @@ class CppDocument(SyntaxDocument):
         return tuple(result)
 
     def declarations(self) -> tuple[SyntaxNode, ...]:
-        """返回文档中的声明节点集合。"""
+        """返回文档中的声明节点集合。
+
+        Return common declaration-like syntax nodes.
+        """
         kinds = ("declaration", "function_definition", "template_declaration")
         return tuple(node for kind in kinds for node in self.nodes(kind))
 
     def user_regions(self) -> tuple[CppRegion, ...]:
-        """识别并返回成对的 User Code Begin/End 区域。"""
+        """识别并返回成对的 User Code Begin/End 区域。
+
+        Find paired STM32-style User Code Begin/End comment regions.
+        """
         return self._paired_comment_regions(
             kind="user",
             begin=re.compile(r"/\*\s*User Code Begin(?:\s+(.+?))?\s*\*/"),
@@ -185,7 +252,10 @@ class CppDocument(SyntaxDocument):
         )
 
     def format_regions(self) -> tuple[CppRegion, ...]:
-        """识别并返回 clang-format off/on 区域。"""
+        """识别并返回 clang-format off/on 区域。
+
+        Find paired clang-format off/on comment regions.
+        """
         return self._paired_comment_regions(
             kind="format",
             begin=re.compile(r"//\s*clang-format\s+off\b"),
@@ -193,7 +263,10 @@ class CppDocument(SyntaxDocument):
         )
 
     def lint_regions(self) -> tuple[CppRegion, ...]:
-        """识别并返回 NOLINTBEGIN/NOLINTEND 区域。"""
+        """识别并返回 NOLINTBEGIN/NOLINTEND 区域。
+
+        Find paired NOLINTBEGIN/NOLINTEND comment regions.
+        """
         return self._paired_comment_regions(
             kind="lint",
             begin=re.compile(r"//\s*NOLINTBEGIN\b"),
@@ -202,6 +275,8 @@ class CppDocument(SyntaxDocument):
 
     # 区域配对只是建立在普通 C++ 注释之上的源码约定，因此刻意放在 grammar
     # 之上实现，而不是为了这个约定去污染 parser。
+    # EN: Region pairing is a source convention layered on ordinary C++ comments.
+    # EN: It deliberately lives above the grammar instead of modifying the parser.
     def _paired_comment_regions(
         self,
         *,
@@ -209,7 +284,10 @@ class CppDocument(SyntaxDocument):
         begin: re.Pattern[str],
         end: re.Pattern[str],
     ) -> tuple[CppRegion, ...]:
-        """按 begin/end 正则匹配成对注释，并构造带 body span 的区域对象。"""
+        """按 begin/end 正则匹配成对注释，并构造带 body span 的区域对象。
+
+        Pair begin/end comments and construct protected-region objects with body spans.
+        """
         source = self.render_bytes()
         stack: list[tuple[SyntaxElement, str | None]] = []
         regions: list[CppRegion] = []

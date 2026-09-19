@@ -1,9 +1,15 @@
-"""验证原生 C++ parser 的逐字节 round-trip 不变量及关键回归场景。"""
+"""验证原生 C++ parser 的逐字节 round-trip 不变量及关键回归场景。
+
+Test the native C++ parser byte-for-byte round-trip invariant and key regression cases.
+"""
 from xr_source.cpp import CppDocument
 
 
 def test_roundtrip_preserves_every_byte() -> None:
-    """验证 C++ parse/render 对输入源码保持逐字节一致。"""
+    """验证 C++ parse/render 对输入源码保持逐字节一致。
+
+    Verify that C++ parse/render preserves the input byte for byte.
+    """
     source = (
         b'#include "foo.hpp"\r\n'
         b"\r\n"
@@ -21,7 +27,10 @@ def test_roundtrip_preserves_every_byte() -> None:
 
 
 def test_empty_translation_unit_is_a_lossless_node() -> None:
-    """验证空 translation unit 仍能无损表示且没有诊断。"""
+    """验证空 translation unit 仍能无损表示且没有诊断。
+
+    Verify that an empty translation unit remains lossless and produces no diagnostics.
+    """
     document = CppDocument.parse(b"")
     assert document.render_bytes() == b""
     assert document.root.kind == "translation_unit"
@@ -29,7 +38,11 @@ def test_empty_translation_unit_is_a_lossless_node() -> None:
 
 
 def test_incomplete_source_is_still_lossless() -> None:
-    """验证不完整 C++ 源码即使产生诊断也仍能逐字节还原。"""
+    """验证不完整 C++ 源码即使产生诊断也仍能逐字节还原。
+
+    Verify that incomplete C++ source remains byte-for-byte lossless even when diagnostics
+    are emitted.
+    """
     source = b"void f() {\n  foo(\n"
     document = CppDocument.parse(source)
     assert document.render_bytes() == source
@@ -37,7 +50,11 @@ def test_incomplete_source_is_still_lossless() -> None:
 
 
 def test_expression_replacements_preserve_edge_trivia() -> None:
-    """验证表达式结构 replacement 不会吞掉边缘空白、换行或预处理 trivia。"""
+    """验证表达式结构 replacement 不会吞掉边缘空白、换行或预处理 trivia。
+
+    Verify that expression replacements do not consume surrounding whitespace, newlines, or
+    preprocessor trivia.
+    """
     source = (
         b"bool f(bool ready) {\n"
         b"  return ready\n"

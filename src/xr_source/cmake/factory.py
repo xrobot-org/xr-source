@@ -1,4 +1,7 @@
-"""提供 CMake 命令、注释和条件块的 parser-backed 片段工厂。"""
+"""提供 CMake 命令、注释和条件块的 parser-backed 片段工厂。
+
+Factories for creating parser-backed CMake command and block fragments.
+"""
 
 from __future__ import annotations
 
@@ -12,23 +15,35 @@ from .parser import CMakeParser
 
 
 class CMakeFactory:
-    """利用共享布局 IR 创建可重新解析的 CMake 命令、注释和块结构。"""
+    """利用共享布局 IR 创建可重新解析的 CMake 命令、注释和块结构。
+
+    Create parser-backed CMake fragments using the shared layout IR.
+    """
     def __init__(
         self,
         parser: CMakeParser | None = None,
         *,
         width: int = 100,
     ) -> None:
-        """初始化 CMake 片段工厂并保存布局宽度配置。"""
+        """初始化 CMake 片段工厂并保存布局宽度配置。
+
+        Initialize the CMake fragment factory and store its layout width.
+        """
         self.parser = parser or CMakeParser()
         self.width = width
 
     def raw(self, source: str) -> GreenElement:
-        """创建不做结构解释的原始 CMake 片段。"""
+        """创建不做结构解释的原始 CMake 片段。
+
+        Create opaque CMake source when a typed command helper is inappropriate.
+        """
         return GreenToken("raw", source, named=True)
 
     def comment(self, text: str) -> GreenElement:
-        """创建一条 CMake 行注释片段。"""
+        """创建一条 CMake 行注释片段。
+
+        Create one CMake line-comment fragment.
+        """
         return self._first(f"# {text}\n", "comment").green
 
     def command(
@@ -36,7 +51,10 @@ class CMakeFactory:
         name: str,
         arguments: Iterable[str] = (),
     ) -> GreenElement:
-        """按给定宽度用布局 IR 创建一个 CMake 命令。"""
+        """按给定宽度用布局 IR 创建一个 CMake 命令。
+
+        Create one CMake command with width-aware argument layout.
+        """
         document = Group(
             concat(
                 name,
@@ -59,7 +77,10 @@ class CMakeFactory:
         condition: Iterable[str],
         body: Iterable[GreenElement],
     ) -> GreenElement:
-        """由结构化条件和 body 片段创建完整 if()/endif() 块。"""
+        """由结构化条件和 body 片段创建完整 if()/endif() 块。
+
+        Create a complete if()/endif() block from structured condition/body fragments.
+        """
         opening = self.command("if", condition).render().rstrip("\r\n")
         closing = "endif()"
         body_text = "".join(element.render() for element in body)
@@ -69,7 +90,11 @@ class CMakeFactory:
         return self._first(source, "if_condition").green
 
     def _first(self, source: str, kind: str) -> SyntaxNode:
-        """从临时解析结果中取得指定 kind 的第一个节点，缺失时抛出错误。"""
+        """从临时解析结果中取得指定 kind 的第一个节点，缺失时抛出错误。
+
+        Return the first parsed element of the requested kind, raising an error when it is
+        absent.
+        """
         document = CMakeDocument.parse(source, parser=self.parser)
         nodes = document.nodes(kind)
         if not nodes:

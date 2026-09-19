@@ -1,4 +1,8 @@
-"""C++ parser 内部的区间、分隔符与 green-tree compose 工具。"""
+"""C++ parser 内部的区间、分隔符与 green-tree compose 工具。
+
+Internal C++ parser helpers for source ranges, delimiters, replacements, and green-tree
+composition.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +17,10 @@ from .lexer import _BINARY_PRECEDENCE, _CONTROL
 
 @dataclass(frozen=True, slots=True)
 class _Replacement:
-    """描述 compose 时用结构节点替换连续 lexeme 区间。"""
+    """描述 compose 时用结构节点替换连续 lexeme 区间。
+
+    Describe a contiguous lexeme range replaced by a structured node during composition.
+    """
 
     start: int
     end: int
@@ -22,10 +29,17 @@ class _Replacement:
 
 
 class _RangeMixin(_ParserSupport):
-    """提供 parser 各阶段共享的区间扫描、匹配、compose 与诊断操作。"""
+    """提供 parser 各阶段共享的区间扫描、匹配、compose 与诊断操作。
+
+    Provide shared range scanning, delimiter matching, composition, and diagnostics for
+    parser stages.
+    """
 
     def _lowest_precedence_operator(self, start: int, end: int) -> int | None:
-        """寻找表达式顶层绑定最弱的二元/赋值运算符。"""
+        """寻找表达式顶层绑定最弱的二元/赋值运算符。
+
+        Find the top-level binary or assignment operator with the weakest binding precedence.
+        """
         significant = self._significant(start, end)
         depth_round = depth_square = depth_brace = 0
         best: tuple[int, int] | None = None
@@ -55,6 +69,7 @@ class _RangeMixin(_ParserSupport):
             if precedence is None:
                 continue
             # 一元 +/-/*/& 出现在表达式开头或另一个运算符之后，不当成 binary。
+            # EN: Unary +/-/*/& at expression start or after another operator is not binary.
             if text in {"+", "-", "*", "&"}:
                 previous = significant[position - 1] if position else None
                 if (
@@ -68,7 +83,10 @@ class _RangeMixin(_ParserSupport):
         return None if best is None else best[1]
 
     def _find_unit_end(self, start: int, end: int, *, context: str) -> int:
-        """寻找一个顶层声明/语句的结束 lexeme 位置。"""
+        """寻找一个顶层声明/语句的结束 lexeme 位置。
+
+        Find the end of one top-level declaration or statement unit.
+        """
         significant = self._significant(start, end)
         if not significant:
             return end
@@ -100,6 +118,8 @@ class _RangeMixin(_ParserSupport):
                         else close + 1
                     )
                 # direct-list initialization 要继续找到 ;，函数/namespace 则在 } 结束。
+                # EN: Direct-list initialization continues through the semicolon, while function and
+                # EN: namespace bodies end at the closing brace.
                 previous = self._previous_significant(index - 1, start)
                 if (
                     previous is not None
@@ -113,7 +133,11 @@ class _RangeMixin(_ParserSupport):
         return end
 
     def _control_unit_end(self, start: int, end: int) -> int:
-        """寻找控制流语句末尾，避免把 body 内分号误当外层结束。"""
+        """寻找控制流语句末尾，避免把 body 内分号误当外层结束。
+
+        Find the end of a control-flow statement without treating body semicolons as the outer
+        terminator.
+        """
         cursor = start + 1
         open_paren = self._next_significant(cursor, end)
         if (
@@ -144,7 +168,10 @@ class _RangeMixin(_ParserSupport):
         return result
 
     def _split_top_level(self, start: int, end: int, separator: str) -> list[tuple[int, int]]:
-        """按不位于 (),[] ,{} 内的分隔符切分连续源码区间。"""
+        """按不位于 (),[] ,{} 内的分隔符切分连续源码区间。
+
+        Split a source range on separators that are not nested inside (), [], or {}.
+        """
         result: list[tuple[int, int]] = []
         part_start = start
         round_depth = square_depth = brace_depth = 0
@@ -170,7 +197,10 @@ class _RangeMixin(_ParserSupport):
         return result
 
     def _find_top_level_token(self, start: int, end: int, token: str) -> int | None:
-        """在当前区间顶层寻找指定 token。"""
+        """在当前区间顶层寻找指定 token。
+
+        Find the requested token at the current nesting level.
+        """
         round_depth = square_depth = brace_depth = 0
         for index in self._significant(start, end):
             text = self.lexemes[index].text
@@ -191,7 +221,10 @@ class _RangeMixin(_ParserSupport):
         return None
 
     def _match_angle(self, opening: int, end: int) -> int | None:
-        """为 template 参数列表区配角括号，并备理建件 `>>`。"""
+        """为 template 参数列表匹配角括号，并正确处理 `>>`。
+
+        Match template angle brackets, including a >> token that closes two nested levels.
+        """
         depth = 0
         for index in self._significant(opening, end):
             text = self.lexemes[index].text
@@ -207,7 +240,10 @@ class _RangeMixin(_ParserSupport):
         return None
 
     def _enclosing_open(self, index: int, token: str, lower_bound: int) -> int | None:
-        """向左寻找包围某 token 的指定开括号。"""
+        """向左寻找包围某 token 的指定开括号。
+
+        Find the matching enclosing opening delimiter to the left of a token.
+        """
         for candidate in range(index, lower_bound - 1, -1):
             if (
                 self.lexemes[candidate].text == token
@@ -218,14 +254,20 @@ class _RangeMixin(_ParserSupport):
         return None
 
     def _before_trailing_semicolon(self, start: int, end: int) -> int:
-        """返回去掉尾部分号后的 lexeme 结杯位置。"""
+        """返回去掉尾部分号后的 lexeme 结束位置。
+
+        Return the lexeme position immediately before a trailing semicolon.
+        """
         last = self._previous_significant(end - 1, start)
         if last is not None and self.lexemes[last].text == ";":
             return last
         return end
 
     def _trim(self, start: int, end: int) -> tuple[int, int] | None:
-        """去掉区间两端 trivia/comment，但不改变内部源码。"""
+        """去掉区间两端 trivia/comment，但不改变内部源码。
+
+        Trim trivia/comments from both ends of a range without modifying its interior source.
+        """
         first = self._next_significant(start, end)
         if first is None:
             return None
@@ -235,7 +277,10 @@ class _RangeMixin(_ParserSupport):
         return first, last + 1
 
     def _significant(self, start: int, end: int) -> list[int]:
-        """返回排除空白和注释后的 lexeme 索引。"""
+        """返回排除空白和注释后的 lexeme 索引。
+
+        Return lexeme indices after excluding trivia and comments.
+        """
         return [
             index
             for index in range(max(0, start), min(end, len(self.lexemes)))
@@ -243,7 +288,10 @@ class _RangeMixin(_ParserSupport):
         ]
 
     def _next_significant(self, start: int, end: int) -> int | None:
-        """向右 寻找下一个非 trivia/comment lexeme。"""
+        """向右寻找下一个非 trivia/comment lexeme。
+
+        Find the next non-trivia, non-comment lexeme to the right.
+        """
         for index in range(max(0, start), min(end, len(self.lexemes))):
             item = self.lexemes[index]
             if not item.trivia and item.kind != "comment":
@@ -251,7 +299,10 @@ class _RangeMixin(_ParserSupport):
         return None
 
     def _previous_significant(self, start: int, lower_bound: int) -> int | None:
-        """向左寻找上一个非 trivia/comment lexeme。"""
+        """向左寻找上一个非 trivia/comment lexeme。
+
+        Find the previous non-trivia, non-comment lexeme to the left.
+        """
         upper = min(start, len(self.lexemes) - 1)
         for index in range(upper, lower_bound - 1, -1):
             item = self.lexemes[index]
@@ -260,7 +311,10 @@ class _RangeMixin(_ParserSupport):
         return None
 
     def _line_prefix_is_trivia(self, index: int, lower_bound: int) -> bool:
-        """判断 `#` 前直到行首是否只有空白。"""
+        """判断 `#` 前直到行首是否只有空白。
+
+        Return whether only whitespace appears between the line start and the # token.
+        """
         cursor = index - 1
         while cursor >= lower_bound:
             item = self.lexemes[cursor]
@@ -272,7 +326,10 @@ class _RangeMixin(_ParserSupport):
         return True
 
     def _text(self, start: int, end: int) -> str:
-        """返回 lexeme 区间的原始源码文本。"""
+        """返回 lexeme 区间的原始源码文本。
+
+        Return the original source text for a lexeme range.
+        """
         return "".join(item.text for item in self.lexemes[start:end])
 
     def _compose(
@@ -282,7 +339,11 @@ class _RangeMixin(_ParserSupport):
         end: int,
         replacements: Iterable[_Replacement],
     ) -> GreenNode:
-        """用不重叠结构节点替换原 token 区间并构造一个 GreenNode。"""
+        """用不重叠结构节点替换原 token 区间并构造一个 GreenNode。
+
+        Compose non-overlapping structured replacements into a GreenNode while preserving
+        untouched source.
+        """
         ordered = _deduplicate_replacements(
             replacement
             for replacement in replacements
@@ -302,7 +363,10 @@ class _RangeMixin(_ParserSupport):
         return GreenNode(kind, tuple(children), named=True)
 
     def _diagnostic(self, message: str, start: int, end: int) -> None:
-        """以 lexeme 字节范围记录结构 parser 诊断。"""
+        """以 lexeme 字节范围记录结构 parser 诊断。
+
+        Record a parser diagnostic for the current lexeme byte range.
+        """
         if not self.lexemes:
             span = SourceSpan(0, 0)
         else:
@@ -314,7 +378,11 @@ class _RangeMixin(_ParserSupport):
 
 
 def _deduplicate_replacements(replacements: Iterable[_Replacement]) -> list[_Replacement]:
-    """按源码顺序保留互不重叠的 replacement；优先更早、更大的结构。"""
+    """按源码顺序保留互不重叠的 replacement；优先更早、更大的结构。
+
+    Keep non-overlapping replacements in source order, preferring earlier and larger
+    structures.
+    """
     ordered = sorted(replacements, key=lambda item: (item.start, -(item.end - item.start)))
     result: list[_Replacement] = []
     cursor = -1

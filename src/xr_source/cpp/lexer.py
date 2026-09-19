@@ -1,6 +1,9 @@
 """xr-source 自有 C++ 词法器。
 
 只负责把源码切成 lossless lexeme；不做 C++ 语义判断。
+
+xr-source native C++ lexer. It produces lossless lexemes without performing C++ semantic
+analysis.
 """
 
 from __future__ import annotations
@@ -10,6 +13,8 @@ from dataclasses import dataclass
 from xr_source.core import Diagnostic, GreenElement, GreenToken, GreenTrivia, SourceSpan
 
 # C++ punctuator 采用最长匹配。模板中的 >> 在 parser 的角括号匹配阶段按两个 > 处理。
+# EN: Use longest-match C++ punctuators; template `>>` is split logically into two
+# EN: closing angles during parser bracket matching.
 _PUNCTUATORS = tuple(
     sorted(
         {
@@ -112,6 +117,7 @@ _LITERAL_KINDS = {
 }
 
 # Pratt parser 的二元运算符优先级；数值越小，绑定越弱。
+# EN: Pratt-parser binary precedence; smaller values bind more weakly.
 _BINARY_PRECEDENCE = {
     "=": 1,
     "+=": 1,
@@ -151,7 +157,10 @@ _BINARY_PRECEDENCE = {
 
 @dataclass(frozen=True, slots=True)
 class _Lexeme:
-    """保存一个不可再分的源码片段及其字节位置。"""
+    """保存一个不可再分的源码片段及其字节位置。
+
+    Store one indivisible source fragment together with its byte positions.
+    """
 
     kind: str
     text: str
@@ -161,17 +170,26 @@ class _Lexeme:
     trivia: bool = False
 
     def green(self) -> GreenElement:
-        """把词法项转换成 green token/trivia。"""
+        """把词法项转换成 green token/trivia。
+
+        Convert the lexical element into its green token/trivia representation.
+        """
         if self.trivia:
             return GreenTrivia(self.kind, self.text)
         return GreenToken(self.kind, self.text, named=self.named)
 
 
 class _Lexer:
-    """纯 Python C++ lexer；对不认识的字符保守地生成 raw token。"""
+    """纯 Python C++ lexer；对不认识的字符保守地生成 raw token。
+
+    Pure-Python C++ lexer that conservatively emits raw tokens for unknown characters.
+    """
 
     def __init__(self, text: str) -> None:
-        """保存待扫描文本并初始化字符/字节游标。"""
+        """保存待扫描文本并初始化字符/字节游标。
+
+        Store the source text and initialize character and byte cursors.
+        """
         self.text = text
         self.length = len(text)
         self.index = 0
@@ -179,7 +197,10 @@ class _Lexer:
         self.diagnostics: list[Diagnostic] = []
 
     def scan(self) -> tuple[list[_Lexeme], list[Diagnostic]]:
-        """扫描完整输入并返回 lossless lexeme 序列。"""
+        """扫描完整输入并返回 lossless lexeme 序列。
+
+        Scan the complete input and return a lossless lexeme sequence.
+        """
         result: list[_Lexeme] = []
         while self.index < self.length:
             start = self.index
@@ -193,6 +214,9 @@ class _Lexer:
             if char in "\r\n":
                 # 行结束必须独立成 lexeme。预处理指令需要拥有“本行”的换行，
                 # 但不能把下一空行一起吞掉；CRLF 作为一个逻辑换行整体保留。
+                # EN: Keep each line ending as its own lexeme so a preprocessor directive owns only
+                # EN: its own newline. Preserve CRLF as one logical line ending without consuming
+                # EN: the following blank line.
                 if (
                     char == "\r"
                     and self.index + 1 < self.length
@@ -270,7 +294,10 @@ class _Lexer:
         return result, self.diagnostics
 
     def _scan_string_or_char(self, start: int) -> _Lexeme | None:
-        """识别普通/宽字符/UTF/原始字符串字面量。"""
+        """识别普通/宽字符/UTF/原始字符串字面量。
+
+        Recognize ordinary, wide, UTF-prefixed, and raw string/character literals.
+        """
         prefixes = (
             'u8R"',
             'uR"',
@@ -338,7 +365,10 @@ class _Lexer:
         return self._emit(kind, start, self.index, named=True)
 
     def _scan_number(self, start: int) -> _Lexeme:
-        """扫描 C++ 数字字面量；后缀保持在同一 token 中。"""
+        """扫描 C++ 数字字面量；后缀保持在同一 token 中。
+
+        Scan a C++ numeric literal while keeping its suffix in the same token.
+        """
         self.index += 1
         previous = self.text[start]
         while self.index < self.length:
@@ -363,7 +393,10 @@ class _Lexer:
         named: bool = False,
         trivia: bool = False,
     ) -> _Lexeme:
-        """生成带准确字节区间的 lexeme，并推进累计字节位置。"""
+        """生成带准确字节区间的 lexeme，并推进累计字节位置。
+
+        Create a lexeme with an exact byte span and advance the cumulative byte offset.
+        """
         fragment = self.text[start:end]
         encoded = fragment.encode("utf-8", errors="surrogateescape")
         item = _Lexeme(
@@ -373,15 +406,24 @@ class _Lexer:
         return item
 
     def _diagnostic(self, message: str, start: int, end: int) -> None:
-        """记录 lexer 发现的源级错误。"""
+        """记录 lexer 发现的源级错误。
+
+        Record a parser diagnostic for the current lexeme byte range.
+        """
         self.diagnostics.append(Diagnostic(message, SourceSpan(start, end)))
 
 
 def _identifier_start(char: str) -> bool:
-    """判断字符是否可作为保守 C++ identifier 起始字符。"""
+    """判断字符是否可作为保守 C++ identifier 起始字符。
+
+    Return whether a character can conservatively start a C++ identifier.
+    """
     return char == "_" or char.isalpha() or ord(char) >= 128
 
 
 def _identifier_continue(char: str) -> bool:
-    """判断字符是否可继续出现在保守 C++ identifier 中。"""
+    """判断字符是否可继续出现在保守 C++ identifier 中。
+
+    Return whether a character can conservatively continue a C++ identifier.
+    """
     return char == "_" or char.isalnum() or ord(char) >= 128

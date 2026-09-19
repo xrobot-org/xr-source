@@ -1,4 +1,7 @@
-"""集中导出不可变语法树、grammar、源码范围、文档和 parser schema 等核心抽象。"""
+"""集中导出不可变语法树、grammar、源码范围、文档和 parser schema 等核心抽象。
+
+Core immutable syntax, grammar, span, document, and parser-schema abstractions.
+"""
 
 from .diagnostic import Diagnostic
 from .document import SyntaxDocument, SyntaxParserProtocol

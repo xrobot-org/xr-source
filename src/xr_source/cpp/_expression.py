@@ -1,4 +1,7 @@
-"""C++ parser 内部的语句与表达式结构解析。"""
+"""C++ parser 内部的语句与表达式结构解析。
+
+Internal C++ parser implementation for statements and expression structure.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +13,10 @@ from .lexer import _LITERAL_KINDS
 
 
 class _ExpressionMixin(_ParserSupport):
-    """解析 compound statement、控制流、调用和常见表达式结构。"""
+    """解析 compound statement、控制流、调用和常见表达式结构。
+
+    Parse compound statements, control flow, calls, and common expression structures.
+    """
 
     def _expression_replacement(
         self,
@@ -22,6 +28,9 @@ class _ExpressionMixin(_ParserSupport):
 
         _parse_expression() 会去掉区间两端的 trivia/comment，因此 replacement
         也必须使用相同的 trimmed span；否则被排除的空白会被错误吞掉。
+
+        Create an expression replacement whose span exactly matches the trivia-trimmed
+        expression node.
         """
         trimmed = self._trim(start, end)
         if trimmed is None:
@@ -30,7 +39,11 @@ class _ExpressionMixin(_ParserSupport):
         return _Replacement(trimmed[0], trimmed[1], expression, field)
 
     def _parse_compound(self, open_brace: int, close_brace: int) -> GreenNode:
-        """解析函数/控制流复合语句，并递归结构化内部声明与调用。"""
+        """解析函数/控制流复合语句，并递归结构化内部声明与调用。
+
+        Parse a function/control-flow compound statement and recursively structure declarations
+        and calls inside it.
+        """
         replacements = self._parse_scope(
             open_brace + 1,
             close_brace,
@@ -44,7 +57,10 @@ class _ExpressionMixin(_ParserSupport):
         )
 
     def _parse_return(self, start: int, end: int) -> _Replacement:
-        """解析 return 语句及返回表达式。"""
+        """解析 return 语句及返回表达式。
+
+        Parse a return statement together with its returned expression.
+        """
         significant = self._significant(start, end)
         semicolon = (
             significant[-1] if significant and self.lexemes[significant[-1]].text == ";" else end
@@ -66,7 +82,10 @@ class _ExpressionMixin(_ParserSupport):
         end: int,
         keyword: str,
     ) -> _Replacement:
-        """解析 if/for/while/switch/catch 的条件和复合 body。"""
+        """解析 if/for/while/switch/catch 的条件和复合 body。
+
+        Parse the condition and compound body of if/for/while/switch/catch constructs.
+        """
         significant = self._significant(start, end)
         open_paren = next(
             (index for index in significant[1:] if self.lexemes[index].text == "("),
@@ -120,7 +139,10 @@ class _ExpressionMixin(_ParserSupport):
         return _Replacement(start, end, node)
 
     def _parse_do(self, start: int, end: int) -> _Replacement:
-        """解析 do/while 结构；body 内部仍递归解析。"""
+        """解析 do/while 结构；body 内部仍递归解析。
+
+        Parse a do/while construct while recursively structuring its body.
+        """
         replacements: list[_Replacement] = []
         body_open = self._next_significant(start + 1, end)
         if (
@@ -142,7 +164,10 @@ class _ExpressionMixin(_ParserSupport):
         return _Replacement(start, end, node)
 
     def _parse_concept(self, start: int, end: int) -> _Replacement:
-        """解析 concept 定义，并继续解析等号后的表达式。"""
+        """解析 concept 定义，并继续解析等号后的表达式。
+
+        Parse a concept definition and continue parsing the expression after =.
+        """
         equal = self._find_top_level_token(start, end, "=")
         replacements: list[_Replacement] = []
         if equal is not None:
@@ -160,7 +185,11 @@ class _ExpressionMixin(_ParserSupport):
         return _Replacement(start, end, node)
 
     def _parse_expression(self, start: int, end: int) -> GreenElement:
-        """解析常见表达式；不能细分时保留为 source_expression。"""
+        """解析常见表达式；不能细分时保留为 source_expression。
+
+        Parse common expression forms, falling back to source_expression when finer
+        classification is unsafe.
+        """
         trimmed = self._trim(start, end)
         if trimmed is None:
             return GreenNode("source_expression", (), named=True)
@@ -349,7 +378,10 @@ class _ExpressionMixin(_ParserSupport):
         )
 
     def _parse_callee(self, start: int, end: int) -> GreenElement:
-        """给调用目标建立轻量结构；不做名称解析。"""
+        """给调用目标建立轻量结构；不做名称解析。
+
+        Build lightweight structure for a call target without performing name resolution.
+        """
         text = self._text(start, end)
         significant = self._significant(start, end)
         if len(significant) == 1 and self.lexemes[significant[0]].kind == "identifier":
@@ -380,7 +412,10 @@ class _ExpressionMixin(_ParserSupport):
         open_paren: int,
         close_paren: int,
     ) -> GreenNode:
-        """解析调用实参列表，使每个实参都可单独查询/重写。"""
+        """解析调用实参列表，使每个实参都可单独查询/重写。
+
+        Parse a call argument list so each argument can be queried or rewritten independently.
+        """
         replacements: list[_Replacement] = []
         parts = self._split_top_level(
             open_paren + 1,
@@ -411,7 +446,11 @@ class _ExpressionMixin(_ParserSupport):
         start: int,
         end: int,
     ) -> list[_Replacement]:
-        """在未完整分类的表达式中保守识别不重叠的调用。"""
+        """在未完整分类的表达式中保守识别不重叠的调用。
+
+        Conservatively recognize non-overlapping calls inside an expression that remains
+        otherwise generic.
+        """
         result: list[_Replacement] = []
         significant = self._significant(start, end)
         for position, index in enumerate(significant):

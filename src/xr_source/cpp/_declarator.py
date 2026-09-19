@@ -1,4 +1,7 @@
-"""C++ parser 内部的函数/变量 declarator 识别辅助。"""
+"""C++ parser 内部的函数/变量 declarator 识别辅助。
+
+Internal C++ parser helpers for recognizing function and variable declarators.
+"""
 
 from __future__ import annotations
 
@@ -10,12 +13,19 @@ from .lexer import _CONTROL, _LITERAL_KINDS, _QUALIFIERS, _STORAGE, _TYPE_WORDS
 
 
 class _DeclaratorMixin(_ParserSupport):
-    """提供函数、参数、变量名称与声明形态的 source-level 判定。"""
+    """提供函数、参数、变量名称与声明形态的 source-level 判定。
+
+    Provide source-level recognition of function/parameter/variable names and declarator
+    shapes.
+    """
 
     def _find_function_parameter_list(
         self, start: int, end: int
     ) -> tuple[int, int, int, int] | None:
-        """找到声明中的主 function parameter list 及函数名区间。"""
+        """找到声明中的主 function parameter list 及函数名区间。
+
+        Locate the primary function parameter list and the source range of the function name.
+        """
         significant = self._significant(start, end)
         for position, index in enumerate(significant):
             if self.lexemes[index].text != "(" or index not in self._pairs:
@@ -40,7 +50,10 @@ class _DeclaratorMixin(_ParserSupport):
         return None
 
     def _function_name_range(self, start: int, end: int) -> tuple[int | None, int]:
-        """识别普通函数名、析构名和 operator 名称的源码范围。"""
+        """识别普通函数名、析构名和 operator 名称的源码范围。
+
+        Locate the source range of a normal function, destructor, or operator name.
+        """
         last = self._previous_significant(end - 1, start)
         if last is None:
             return None, end
@@ -58,7 +71,10 @@ class _DeclaratorMixin(_ParserSupport):
         return None, end
 
     def _name_element(self, start: int, end: int) -> GreenElement:
-        """为函数名范围选择 identifier/destructor_name/operator_name。"""
+        """为函数名范围选择 identifier/destructor_name/operator_name。
+
+        Choose the syntax element kind for a function, destructor, or operator name.
+        """
         text = self._text(start, end)
         stripped = text.strip()
         if stripped.startswith("operator"):
@@ -84,7 +100,10 @@ class _DeclaratorMixin(_ParserSupport):
         name_start: int,
         context: str,
     ) -> bool:
-        """区分函数声明和 `Type object(args);` 直接初始化。"""
+        """区分函数声明和 `Type object(args);` 直接初始化。
+
+        Distinguish a function declaration from direct object initialization.
+        """
         name_text = self._text(name_start, open_paren).strip()
         if context == "class":
             if name_text.startswith("operator") or name_text.startswith("~"):
@@ -95,7 +114,11 @@ class _DeclaratorMixin(_ParserSupport):
         return self._parameter_list_looks_declarative(open_paren, close_paren)
 
     def _parameter_list_looks_declarative(self, open_paren: int, close_paren: int) -> bool:
-        """粗粒度判断括号内容更像参数声明还是构造实参。"""
+        """粗粒度判断括号内容更像参数声明还是构造实参。
+
+        Conservatively decide whether parentheses contain parameter declarations rather than
+        constructor arguments.
+        """
         parts = self._split_top_level(open_paren + 1, close_paren, ",")
         if not parts:
             return True
@@ -109,16 +132,23 @@ class _DeclaratorMixin(_ParserSupport):
                 return False
             if len(significant) == 1 and self.lexemes[significant[0]].kind == "identifier":
                 # `f(Type)` 合法，`object(arg)` 也可能；顶层按 C++ most-vexing-parse 倾向函数。
+                # EN: Both forms are possible; at top level, follow the C++ most-vexing-parse bias
+                # EN: toward a function declaration.
                 continue
         return True
 
     def _find_parameter_name(self, start: int, end: int) -> int | None:
-        """从参数 declarator 中定位名字，不把函数指针后面的参数类型误认成名字。"""
+        """从参数 declarator 中定位名字，不把函数指针后面的参数类型误认成名字。
+
+        Locate a parameter declarator name without mistaking function-pointer parameter types
+        for the name.
+        """
         significant = self._significant(start, end)
         if not significant:
             return None
 
         # 优先识别 `(*cb)` / `(&arr)` / `(C::*cb)` 这类嵌套 declarator。
+        # EN: Recognize nested declarators such as `(*cb)`, `(&arr)`, and `(C::*cb)` first.
         for index in significant:
             if self.lexemes[index].kind != "identifier" or self.lexemes[index].text in _TYPE_WORDS:
                 continue
@@ -161,18 +191,25 @@ class _DeclaratorMixin(_ParserSupport):
             if first_word in {"typename", "class"}:
                 return candidates[0]
             # 单个自定义类型且没有 declarator 时通常是匿名参数。
+            # EN: A lone custom type without a declarator is usually an unnamed parameter.
             if candidates[0] == significant[0] and len(significant) == 1:
                 return None
         return candidates[-1]
 
     def _find_variable_name(self, start: int, end: int) -> int | None:
-        """识别常见变量 declarator 的名字，并忽略 initializer 内部的标识符。"""
+        """识别常见变量 declarator 的名字，并忽略 initializer 内部的标识符。
+
+        Recognize a common variable declarator name while ignoring identifiers inside its
+        initializer.
+        """
         search_end = end
         equal = self._find_top_level_token(start, end, "=")
         if equal is not None:
             search_end = equal
         else:
             # direct-init/list-init 的第一个顶层括号属于 initializer，名字一定在它之前。
+            # EN: The first top-level direct/list-init delimiter starts the initializer, so the
+            # EN: declarator name must appear before it.
             for index in self._significant(start, end):
                 if (
                     self.lexemes[index].text in {"(", "{"}
@@ -214,6 +251,9 @@ class _DeclaratorMixin(_ParserSupport):
         C++ 的 `T * x;` 与 `a * b;` 在不知道名字语义时天然有歧义。这里不做
         typedef/name lookup：顶层和类作用域优先按声明；block 中仅在类型拼写具有
         明显 type-like 形态时把 `*`/`&` 解释为 declarator。
+
+        Conservatively decide whether a semicolon-terminated source unit should be treated as a
+        declaration without name lookup.
         """
         significant = self._significant(start, end)
         if not significant:
@@ -236,6 +276,8 @@ class _DeclaratorMixin(_ParserSupport):
 
         # 名字之前出现真正的表达式运算符时，不再猜成声明。pointer/reference
         # punctuator 保留给 declarator。
+        # EN: If a real expression operator appears before the candidate name, stop treating
+        # EN: the source as a declaration. Pointer/reference punctuators remain declarator syntax.
         for index in self._significant(first_index + 1, name):
             text = self.lexemes[index].text
             if text in {
@@ -268,11 +310,16 @@ class _DeclaratorMixin(_ParserSupport):
             return True
 
         # `Foo value;` 这类两个 identifier 连续出现，本身不构成合法普通表达式。
+        # EN: Two adjacent identifiers such as `Foo value;` do not form a normal valid
+        # EN: expression by themselves.
         before_name = self._previous_significant(name - 1, first_index)
         return before_name is not None and self.lexemes[before_name].kind == "identifier"
 
     def _specifier_replacements(self, start: int, end: int) -> list[_Replacement]:
-        """把 storage/type qualifier 包装成稳定 named node，供 convenience view 查询。"""
+        """把 storage/type qualifier 包装成稳定 named node，供 convenience view 查询。
+
+        Build structured replacements for storage-class and type qualifiers.
+        """
         result: list[_Replacement] = []
         for index in self._significant(start, end):
             word = self.lexemes[index].text
@@ -285,7 +332,10 @@ class _DeclaratorMixin(_ParserSupport):
         return result
 
     def _type_range(self, start: int, name_start: int) -> tuple[int, int] | None:
-        """提取函数声明中 return type 的源码区间。"""
+        """提取函数声明中 return type 的源码区间。
+
+        Extract the source range spelling the function return type.
+        """
         first = self._next_significant(start, name_start)
         if first is None:
             return None
@@ -307,7 +357,10 @@ class _DeclaratorMixin(_ParserSupport):
         return first, name_start
 
     def _special_member_clause(self, start: int, end: int) -> _Replacement | None:
-        """识别 `= delete` / `= default` 子句。"""
+        """识别 `= delete` / `= default` 子句。
+
+        Recognize an = delete or = default special-member clause.
+        """
         equal = self._find_top_level_token(start, end, "=")
         if equal is None:
             return None
@@ -322,7 +375,11 @@ class _DeclaratorMixin(_ParserSupport):
         return _Replacement(equal, word + 1, node)
 
     def _find_call_suffix(self, start: int, end: int) -> tuple[int, int] | None:
-        """如果整个表达式以一次函敲调用结束，返回其实参括号。"""
+        """如果整个表达式以一次函数调用结束，返回其实参括号。
+
+        Return the argument-parenthesis pair when the entire expression ends in one function
+        call.
+        """
         significant = self._significant(start, end)
         if len(significant) < 3:
             return None

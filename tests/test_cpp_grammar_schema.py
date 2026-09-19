@@ -1,16 +1,27 @@
-"""验证原生 C++ grammar 合同、字段约束与 subtype 分类。"""
+"""验证原生 C++ grammar 合同、字段约束与 subtype 分类。
+
+Test the native C++ grammar contract, field constraints, and subtype classification.
+"""
 from xr_source.cpp import CPP_GRAMMAR, CppParser
 
 
 def test_cpp_grammar_schema_identity_and_root() -> None:
-    """确认 C++ grammar 已由 xr-source 自己维护，而不是第三方 parser 元数据。"""
+    """确认 C++ grammar 已由 xr-source 自己维护，而不是第三方 parser 元数据。
+
+    Verify that the C++ grammar contract is owned by xr-source rather than third-party
+    parser metadata.
+    """
     assert CPP_GRAMMAR.version == "xr-cpp-0.1"
     assert CPP_GRAMMAR.source_revision == "native-source-model-v1"
     assert [(node.kind, node.named) for node in CPP_GRAMMAR.roots] == [("translation_unit", True)]
 
 
 def test_expression_schema_covers_modern_cpp_expression_forms() -> None:
-    """核心现代 C++ expression 分类必须继续暴露给上层查询。"""
+    """核心现代 C++ expression 分类必须继续暴露给上层查询。
+
+    Verify that core modern C++ expression categories remain exposed to higher-level
+    queries.
+    """
     expression = CPP_GRAMMAR.require_node("expression", named=True)
     subtypes = {(item.kind, item.named) for item in expression.subtypes}
     assert {
@@ -29,7 +40,11 @@ def test_expression_schema_covers_modern_cpp_expression_forms() -> None:
 
 
 def test_binary_expression_field_contract_is_structured() -> None:
-    """binary expression 的 left/operator/right 合同必须稳定。"""
+    """binary expression 的 left/operator/right 合同必须稳定。
+
+    Verify that the left/operator/right field contract for binary expressions remains
+    stable.
+    """
     binary = CPP_GRAMMAR.require_node("binary_expression", named=True)
     assert binary.field_names == ("left", "operator", "right")
 
@@ -42,7 +57,11 @@ def test_binary_expression_field_contract_is_structured() -> None:
 
 
 def test_document_can_classify_nodes_through_grammar_schema() -> None:
-    """解析出来的节点仍可通过自有 grammar subtype 图分类。"""
+    """解析出来的节点仍可通过自有 grammar subtype 图分类。
+
+    Verify that parsed nodes can still be classified through the native grammar subtype
+    graph.
+    """
     from xr_source.cpp import CppDocument
 
     document = CppDocument.parse("void f() { if (ready) { target(a + b); } }")
@@ -62,7 +81,11 @@ def test_document_can_classify_nodes_through_grammar_schema() -> None:
 
 
 def test_grammar_references_exist_in_native_parser_schema() -> None:
-    """grammar 中声明的 kind 必须能被 native parser runtime schema 表达。"""
+    """grammar 中声明的 kind 必须能被 native parser runtime schema 表达。
+
+    Verify that every kind referenced by the grammar can be represented by the native parser
+    runtime schema.
+    """
     runtime_kinds = CppParser().schema.kind_names
     missing: set[tuple[str, bool]] = set()
 

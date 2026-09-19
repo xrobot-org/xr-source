@@ -1,4 +1,7 @@
-"""C++ parser 内部的函数、参数与变量声明解析。"""
+"""C++ parser 内部的函数、参数与变量声明解析。
+
+Internal C++ parser implementation for functions, parameters, and variable declarations.
+"""
 
 from __future__ import annotations
 
@@ -10,10 +13,17 @@ from .lexer import _CONTROL, _STORAGE, _TYPE_WORDS
 
 
 class _DeclarationMixin(_ParserSupport):
-    """解析一个 source unit 中的函数声明/定义、参数与变量声明。"""
+    """解析一个 source unit 中的函数声明/定义、参数与变量声明。
+
+    Parse function declarations/definitions, parameters, and variable declarations within
+    one source unit.
+    """
 
     def _parse_unit(self, start: int, end: int, *, context: str) -> _Replacement | None:
-        """把一个完整声明/语句区间分类成具体结构节点。"""
+        """把一个完整声明/语句区间分类成具体结构节点。
+
+        Classify one complete declaration/statement range into a concrete structural node.
+        """
         significant = self._significant(start, end)
         if not significant:
             return None
@@ -33,6 +43,8 @@ class _DeclarationMixin(_ParserSupport):
 
         # C++ 不允许 block-scope function definition；这里优先把 `foo(args);`
         # 解释为表达式调用，避免把普通调用误判成局部函数声明。
+        # EN: C++ forbids block-scope function definitions, so prefer interpreting
+        # EN: `foo(args);` as an expression call instead of a local function declaration.
         if context != "block":
             function = self._parse_function(start, end, context=context)
             if function is not None:
@@ -64,7 +76,11 @@ class _DeclarationMixin(_ParserSupport):
         return _Replacement(start, end, node)
 
     def _parse_function(self, start: int, end: int, *, context: str) -> _Replacement | None:
-        """识别函数定义/声明，并构造 function_declarator 与参数结构。"""
+        """识别函数定义/声明，并构造 function_declarator 与参数结构。
+
+        Recognize a function declaration/definition and build its function_declarator and
+        parameter structure.
+        """
         significant = self._significant(start, end)
         if not significant:
             return None
@@ -142,7 +158,10 @@ class _DeclarationMixin(_ParserSupport):
         return _Replacement(start, end, node)
 
     def _parse_parameter_list(self, open_paren: int, close_paren: int) -> GreenNode:
-        """解析函数参数列表并保留逗号与空白。"""
+        """解析函数参数列表并保留逗号与空白。
+
+        Parse a function parameter list while preserving commas and whitespace.
+        """
         replacements: list[_Replacement] = []
         for part_start, part_end in self._split_top_level(open_paren + 1, close_paren, ","):
             if self._next_significant(part_start, part_end) is None:
@@ -152,7 +171,11 @@ class _DeclarationMixin(_ParserSupport):
         return self._compose("parameter_list", open_paren, close_paren + 1, replacements)
 
     def _parse_parameter(self, start: int, end: int, *, template: bool) -> GreenNode:
-        """解析一个函数或模板参数，重点稳定提取 name/default/type spelling。"""
+        """解析一个函数或模板参数，重点稳定提取 name/default/type spelling。
+
+        Parse one function or template parameter and stably extract its name, default value, and
+        type spelling.
+        """
         significant = self._significant(start, end)
         equal = self._find_top_level_token(start, end, "=")
         declarator_end = equal if equal is not None else end
@@ -206,7 +229,11 @@ class _DeclarationMixin(_ParserSupport):
         return self._compose(kind, start, end, replacements)
 
     def _parse_declaration(self, start: int, end: int) -> _Replacement | None:
-        """解析常见变量声明；无法稳定拆分时返回 None 让上层保留原文。"""
+        """解析常见变量声明；无法稳定拆分时返回 None 让上层保留原文。
+
+        Parse common variable declarations; return None when a stable split is not possible so
+        the caller preserves the original source.
+        """
         significant = self._significant(start, end)
         if not significant:
             return None

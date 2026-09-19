@@ -1,4 +1,7 @@
-"""定义不可变 SyntaxTree 快照以及底层 replace/remove/insert 结构编辑操作。"""
+"""定义不可变 SyntaxTree 快照以及底层 replace/remove/insert 结构编辑操作。
+
+Immutable syntax-tree snapshot and low-level structural edit operations.
+"""
 
 from __future__ import annotations
 
@@ -17,6 +20,12 @@ class SyntaxTree:
 
     快照包含 green root、诊断和源码身份，并提供不重新调用 parser 的
     底层持久化编辑。
+
+    Immutable language syntax snapshot backed by a green root.
+
+    The tree owns diagnostics/source identity and creates red views on demand. Its
+    edit methods are intentionally low-level: they preserve structural sharing but
+    do not invoke the language parser again.
     """
     language: str
     green_root: GreenNode
@@ -25,7 +34,10 @@ class SyntaxTree:
 
     @property
     def root(self) -> SyntaxNode:
-        """创建并返回当前不可变语法快照的 red 根节点。"""
+        """创建并返回当前不可变语法快照的 red 根节点。
+
+        Create the red root view for this immutable snapshot.
+        """
         return SyntaxNode(
             self,
             self.green_root,
@@ -36,11 +48,17 @@ class SyntaxTree:
         )
 
     def render(self) -> str:
-        """按 green root 原样渲染完整源码文本。"""
+        """按 green root 原样渲染完整源码文本。
+
+        Render the complete represented source without normalization.
+        """
         return self.green_root.render()
 
     def render_bytes(self) -> bytes:
-        """按源码编码原样渲染完整源码字节。"""
+        """按源码编码原样渲染完整源码字节。
+
+        Render the complete represented source as bytes.
+        """
         return encode_source(self.render())
 
     def replace(
@@ -48,7 +66,10 @@ class SyntaxTree:
         target: SyntaxElement,
         replacement: SyntaxElement | GreenElement,
     ) -> SyntaxTree:
-        """持久化替换一个元素，仅重建目标到根路径上的节点。"""
+        """持久化替换一个元素，仅重建目标到根路径上的节点。
+
+        Persistently replace one element, reusing unaffected green subtrees.
+        """
         self._check_target(target)
         green = replacement.green if isinstance(replacement, SyntaxElement) else replacement
         if not target.path:
@@ -58,7 +79,10 @@ class SyntaxTree:
         return self._with_root(_replace_at(self.green_root, target.path, green))
 
     def remove(self, target: SyntaxElement) -> SyntaxTree:
-        """持久化删除一个非根元素。"""
+        """持久化删除一个非根元素。
+
+        Persistently remove one non-root element.
+        """
         self._check_target(target)
         if not target.path:
             raise ValueError("cannot remove the syntax tree root")
@@ -71,7 +95,10 @@ class SyntaxTree:
         *,
         separator: str = "",
     ) -> SyntaxTree:
-        """在非根目标元素前持久化插入一个或多个元素。"""
+        """在非根目标元素前持久化插入一个或多个元素。
+
+        Persistently insert elements before a non-root target.
+        """
         self._check_target(target)
         if not target.path:
             raise ValueError("cannot insert beside the syntax tree root")
@@ -90,7 +117,10 @@ class SyntaxTree:
         *,
         separator: str = "",
     ) -> SyntaxTree:
-        """在非根目标元素后持久化插入一个或多个元素。"""
+        """在非根目标元素后持久化插入一个或多个元素。
+
+        Persistently insert elements after a non-root target.
+        """
         self._check_target(target)
         if not target.path:
             raise ValueError("cannot insert beside the syntax tree root")
@@ -104,12 +134,19 @@ class SyntaxTree:
         )
 
     def _check_target(self, target: SyntaxElement) -> None:
-        """确认待编辑 red 元素确实属于当前 SyntaxTree 快照。"""
+        """确认待编辑 red 元素确实属于当前 SyntaxTree 快照。
+
+        Verify that the red element being edited belongs to this SyntaxTree snapshot.
+        """
         if target.tree is not self:
             raise ValueError("target belongs to a different immutable syntax snapshot")
 
     def _with_root(self, root: GreenNode) -> SyntaxTree:
-        """用新 green root 构造保留语言和源码身份的新 SyntaxTree。"""
+        """用新 green root 构造保留语言和源码身份的新 SyntaxTree。
+
+        Create a new SyntaxTree with the supplied green root while preserving language and
+        source identity.
+        """
         return SyntaxTree(
             language=self.language,
             green_root=root,
@@ -123,7 +160,11 @@ def _replace_at(
     path: tuple[int, ...],
     element: GreenElement,
 ) -> GreenNode:
-    """按结构路径递归替换 green 元素，并复用路径外的子树。"""
+    """按结构路径递归替换 green 元素，并复用路径外的子树。
+
+    Recursively replace a green element by structural path while reusing subtrees outside
+    the path.
+    """
     index = path[0]
     if len(path) == 1:
         return root.replacing_child(index, element)
@@ -134,7 +175,11 @@ def _replace_at(
 
 
 def _remove_at(root: GreenNode, path: tuple[int, ...]) -> GreenNode:
-    """按结构路径递归删除 green 元素，并复用路径外的子树。"""
+    """按结构路径递归删除 green 元素，并复用路径外的子树。
+
+    Recursively remove a green element by structural path while reusing subtrees outside the
+    path.
+    """
     index = path[0]
     if len(path) == 1:
         return root.removing_child(index)
@@ -151,7 +196,11 @@ def _insert_at(
     *,
     before: bool,
 ) -> GreenNode:
-    """按结构路径递归插入 green 元素，并复用路径外的子树。"""
+    """按结构路径递归插入 green 元素，并复用路径外的子树。
+
+    Recursively insert green elements by structural path while reusing subtrees outside the
+    path.
+    """
     index = path[0]
     if len(path) == 1:
         children = list(root.children)

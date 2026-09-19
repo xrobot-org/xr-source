@@ -2,6 +2,9 @@
 
 这里描述的是 source parser 对外承诺的结构，不依赖 Tree-sitter 的 node-types.json。
 它不是 C++ 类型系统，也不负责名字查找、重载决议或模板实例化。
+
+xr-source native C++ source-grammar contract, independent of Tree-sitter node-types
+metadata.
 """
 
 from __future__ import annotations
@@ -15,14 +18,20 @@ GRAMMAR_REVISION = "native-source-model-v1"
 
 
 def _ref(kind: str, named: bool = True) -> GrammarTypeRef:
-    """创建一个 grammar type 引用。"""
+    """创建一个 grammar type 引用。
+
+    Create one grammar type reference.
+    """
     return GrammarTypeRef(kind, named)
 
 
 def _slot(
     *kinds: str, multiple: bool = False, required: bool = False, named: bool = True
 ) -> GrammarSlot:
-    """创建只包含同一 named 属性的一组 grammar slot 候选。"""
+    """创建只包含同一 named 属性的一组 grammar slot 候选。
+
+    Convert a node-types field/children description into a GrammarSlot.
+    """
     return GrammarSlot(multiple, required, tuple(_ref(kind, named) for kind in kinds))
 
 
@@ -35,7 +44,10 @@ def _node(
     children: GrammarSlot | None = None,
     subtypes: tuple[GrammarTypeRef, ...] = (),
 ) -> GrammarNodeSpec:
-    """创建一个 source grammar 节点说明。"""
+    """创建一个 source grammar 节点说明。
+
+    Create one source-grammar node specification.
+    """
     return GrammarNodeSpec(kind, named, root, fields, children, subtypes)
 
 
@@ -378,6 +390,7 @@ _NODES = (
 )
 
 # Grammar identity 基于本文件内置合同，而不是第三方 grammar revision。
+# EN: Grammar identity comes from this built-in contract, not a third-party grammar revision.
 _SCHEMA_FINGERPRINT = "\n".join(
     "{}:{}:{}".format(node.kind, int(node.named), ",".join(node.field_names)) for node in _NODES
 ).encode("utf-8")

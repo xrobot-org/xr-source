@@ -1,4 +1,7 @@
-"""提供 C++ declarator、声明名称和类型文本提取等语法辅助函数。"""
+"""提供 C++ declarator、声明名称和类型文本提取等语法辅助函数。
+
+Internal C++ declarator/name helpers shared by typed convenience views.
+"""
 
 from __future__ import annotations
 
@@ -6,13 +9,19 @@ from xr_source.core import SyntaxElement, SyntaxNode, decode_source
 
 
 def field_text(node: SyntaxNode, field: str) -> str | None:
-    """返回节点指定 field 的精确源码文本；field 不存在时返回 None。"""
+    """返回节点指定 field 的精确源码文本；field 不存在时返回 None。
+
+    Return raw source text for one parser field, or None when absent.
+    """
     child = node.child_by_field(field)
     return None if child is None else child.text
 
 
 def declaration_name_element(node: SyntaxNode) -> SyntaxElement | None:
-    """从声明节点中递归定位代表声明名称的语法元素。"""
+    """从声明节点中递归定位代表声明名称的语法元素。
+
+    Locate the syntax element that spells a declaration or function name.
+    """
     function = find_function_declarator(node)
     current = (
         function.child_by_field("declarator")
@@ -48,6 +57,7 @@ def declaration_name_element(node: SyntaxNode) -> SyntaxElement | None:
         return current
 
     # `typename T` 这类类型模板参数没有 declarator field，需要单独识别名称。
+    # EN: Type template parameters such as 'typename T' have no declarator field.
     candidates = [
         child
         for child in node.named_syntax_children
@@ -57,13 +67,19 @@ def declaration_name_element(node: SyntaxNode) -> SyntaxElement | None:
 
 
 def declaration_name(node: SyntaxNode) -> str | None:
-    """返回声明的源码级名称文本；无法定位时返回 None。"""
+    """返回声明的源码级名称文本；无法定位时返回 None。
+
+    Return the source spelling of a declaration name when identifiable.
+    """
     element = declaration_name_element(node)
     return None if element is None else element.text
 
 
 def declarator_name_element(element: SyntaxElement) -> SyntaxElement | None:
-    """沿 declarator 结构递归查找实际名称元素。"""
+    """沿 declarator 结构递归查找实际名称元素。
+
+    Locate the terminal name element inside a C++ declarator subtree.
+    """
     current: SyntaxElement | None = element
     while isinstance(current, SyntaxNode):
         if current.kind in {"destructor_name", "operator_name"}:
@@ -95,13 +111,19 @@ def declarator_name_element(element: SyntaxElement) -> SyntaxElement | None:
 
 
 def declarator_name(element: SyntaxElement) -> str | None:
-    """返回 declarator 中实际名称的源码文本。"""
+    """返回 declarator 中实际名称的源码文本。
+
+    Return the terminal declarator name spelling when available.
+    """
     name = declarator_name_element(element)
     return None if name is None else name.text
 
 
 def declaration_type_text(node: SyntaxNode) -> str | None:
-    """重建声明的源码级类型文本，同时排除名称和初始化器。"""
+    """重建声明的源码级类型文本，同时排除名称和初始化器。
+
+    Reconstruct source-level type text without performing semantic type analysis.
+    """
     name = declaration_name_element(node)
     if name is None:
         return None
@@ -123,7 +145,10 @@ def declaration_type_text(node: SyntaxNode) -> str | None:
 
 
 def find_function_declarator(node: SyntaxNode) -> SyntaxNode | None:
-    """在函数或声明结构中定位 function_declarator 节点。"""
+    """在函数或声明结构中定位 function_declarator 节点。
+
+    Return the first function_declarator at or below a syntax node.
+    """
     if node.kind == "function_declarator":
         return node
     found = node.first_descendant("function_declarator")
@@ -131,7 +156,10 @@ def find_function_declarator(node: SyntaxNode) -> SyntaxNode | None:
 
 
 def named_elements(node: SyntaxNode, kinds: set[str]) -> tuple[SyntaxElement, ...]:
-    """返回给定元素后代中所有 named node/token。"""
+    """返回给定元素后代中所有 named node/token。
+
+    Collect descendants whose kind is present in the requested set.
+    """
     return tuple(
         child
         for child in node.descendants()

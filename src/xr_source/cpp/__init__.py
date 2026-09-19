@@ -1,4 +1,7 @@
-"""集中导出 C++ 原生解析器、grammar、查询视图、片段工厂和构建器。"""
+"""集中导出 C++ 原生解析器、grammar、查询视图、片段工厂和构建器。
+
+C++ frontend: parser, grammar metadata, structured queries, views, and builders.
+"""
 
 from .builder import CppBlockBuilder, CppFileBuilder, CppFunctionBuilder
 from .document import CppDocument, CppRegion
