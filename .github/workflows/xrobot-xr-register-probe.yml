@@ -1,0 +1,124 @@
+name: xrobot-xr-register-probe
+
+on:
+  push:
+    branches:
+      - feat/source-model-20260918
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    if: github.event.head_commit.message == 'Run XR_REGISTER corpus probe'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - name: Discover repositories containing XR_REGISTER
+        run: |
+          gh api -X GET search/code \
+            -f q='XR_REGISTER org:xrobot-org' \
+            -f per_page=100 > /tmp/code-search.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path("/tmp/code-search.json").read_text())
+          allowed = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
+          items = [
+              item for item in data.get("items", [])
+              if Path(item["path"]).suffix.lower() in allowed
+          ]
+          repos = sorted({item["repository"]["full_name"] for item in items})
+          print(f"search_total={data.get('total_count', 0)} cpp_items={len(items)} repos={len(repos)}")
+          for repo in repos:
+              print("REPO", repo)
+          Path("/tmp/repos.txt").write_text("\n".join(repos) + ("\n" if repos else ""))
+          Path("/tmp/search-items.json").write_text(json.dumps(items, indent=2))
+          PY
+      - name: Clone matching repositories
+        run: |
+          mkdir -p /tmp/xr-register-repos
+          while IFS= read -r repo; do
+            [ -z "$repo" ] && continue
+            name="${repo#*/}"
+            git clone --depth=1 "https://github.com/$repo.git" "/tmp/xr-register-repos/$name"
+          done </tmp/repos.txt
+      - name: Extract XR_REGISTER invocations
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          from xr_syntax.cpp import CppDocument, identifier_occurrences
+
+          root = Path("/tmp/xr-register-repos")
+          allowed = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
+          rows = []
+          for path in sorted(p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in allowed):
+              data = path.read_bytes()
+              if b"XR_REGISTER" not in data:
+                  continue
+              document = CppDocument.parse(data, source_name=str(path))
+              invocations = document.invocation_views("XR_REGISTER", template_angles=True)
+              source = document.render()
+              identifiers = [
+                  item for item in identifier_occurrences(source)
+                  if item.text == "XR_REGISTER" and item.following == "("
+              ]
+              row = {
+                  "repo": path.relative_to(root).parts[0],
+                  "path": str(path.relative_to(root / path.relative_to(root).parts[0])),
+                  "diagnostics": [item.message for item in document.diagnostics],
+                  "identifier_candidates": len(identifiers),
+                  "invocations": [
+                      {
+                          "line": item.line,
+                          "text": item.text,
+                          "arguments": list(item.arguments),
+                      }
+                      for item in invocations
+                  ],
+              }
+              row["count_match"] = len(identifiers) == len(invocations)
+              rows.append(row)
+
+          result = {
+              "files": len(rows),
+              "identifier_candidates": sum(row["identifier_candidates"] for row in rows),
+              "invocations": sum(len(row["invocations"]) for row in rows),
+              "count_mismatches": sum(not row["count_match"] for row in rows),
+              "rows": rows,
+          }
+          Path("xr-register-corpus.json").write_text(
+              json.dumps(result, indent=2, ensure_ascii=False),
+              encoding="utf-8",
+          )
+          print(
+              f"files={result['files']} identifier_candidates={result['identifier_candidates']} "
+              f"invocations={result['invocations']} count_mismatches={result['count_mismatches']}"
+          )
+          for row in rows:
+              print(
+                  "FILE", row["repo"], row["path"],
+                  f"candidates={row['identifier_candidates']}",
+                  f"invocations={len(row['invocations'])}",
+                  f"diagnostics={len(row['diagnostics'])}",
+              )
+              for invocation in row["invocations"]:
+                  print("  INV", invocation["line"], invocation["arguments"])
+          if result["count_mismatches"]:
+              raise SystemExit(1)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xr-register-corpus
+          path: |
+            xr-register-corpus.json
+            /tmp/search-items.json
