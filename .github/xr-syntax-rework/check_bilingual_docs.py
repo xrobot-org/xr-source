@@ -30,14 +30,20 @@ def _has_english(text: Optional[str]) -> bool:
 
 
 def _python_files(root: Path) -> List[Path]:
-    """列出需要检查的 Python 文件。
-    List Python files included in the documentation audit.
+    """列出项目源码、测试和工具中的 Python 文件。
+    List Python files from project source, tests, and tools.
     """
-    return sorted(
-        path
-        for path in root.rglob("*.py")
-        if not any(part in _SKIP for part in path.parts)
-    )
+    files: List[Path] = []
+    for directory in ("src", "tests", "tools"):
+        base = root / directory
+        if not base.exists():
+            continue
+        files.extend(
+            path
+            for path in base.rglob("*.py")
+            if not any(part in _SKIP for part in path.parts)
+        )
+    return sorted(files)
 
 
 def _check_docstring(
