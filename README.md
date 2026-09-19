@@ -1,42 +1,38 @@
 # XR Syntax
 
-C++ / CMake 源码解析、重写与代码生成工具 / C++ and CMake source parsing, rewriting and code generation toolkit
+`xr-syntax` 是 XRobot / LibXR Python 工具使用的**结构化源码解析、修改与代码生成基础库**。
 
-`xr-syntax` 为 XRobot 和 LibXR 的 Python 工具提供统一的源码表示。它可以读取现有源码、按结构查询和修改，也可以用同一套模型生成新代码。  
-`xr-syntax` provides one source model for XRobot and LibXR Python tooling. It reads existing source, supports structured queries and edits, and generates new code through the same model.
+它解决的是源码层问题：
 
-## 🌟 功能 / Features
+- 读取已有 C++ / CMake；
+- 保留原始空白、换行、注释和用户代码；
+- 按函数、类、调用、变量、命令等结构查询；
+- 对指定结构进行不可变编辑；
+- 用同一套模型生成新的 C++ / CMake；
+- 给 XRobot、LibXR_CppCodeGenerator 提供统一 backend。
 
-- **无损解析 / Lossless parsing**  
-  `parse()` 后再 `render()` 保留原始源码字节，包括空白、换行和注释。  
-  Parsing and rendering preserves the original source bytes, including whitespace, line endings, and comments.
+它**不是 C++ 编译器**，不会自己做 name lookup、overload resolution、template instantiation 或 type inference。
 
-- **C++ 与 CMake / C++ and CMake**  
-  两种语言都包含在基础安装中，不需要额外 extra。  
-  Both frontends are included in the base package; no extra installation is required.
+最基本的不变量是：
 
-- **结构化查询与修改 / Structured queries and edits**  
-  可以按函数、类、调用、变量或 CMake 命令定位结构，并返回新的不可变文档快照。  
-  Query functions, classes, calls, variables, and CMake commands, then produce a new immutable document snapshot after edits.
+```python
+document = CppDocument.parse(source)
+assert document.render_bytes() == source
+```
 
-- **生成与解析共用模型 / One model for parsing and generation**  
-  Factory 和 builder 生成的源码会回到同一套语法树中。  
-  Factory and builder output returns to the same syntax representation used by parsed files.
+即使 parser 对某段源码只能保守地表示，原始源码也不能因为解析而丢失。
 
-- **格式化布局 / Formatting layout**  
-  新生成代码使用独立的 layout IR 控制换行和缩进，不改动已有源码的 trivia。  
-  Generated code uses a separate layout IR for wrapping and indentation without normalizing trivia in existing source.
+---
 
-## 📥 安装 / Installation
+## 安装
 
-Python 3.8 及以上版本。  
-Python 3.8 or newer is required.
+支持 Python 3.8–3.13，与 XRobot 和 LibXR_CppCodeGenerator 的 Python 包保持一致。
 
 ```bash
 pip install xr-syntax
 ```
 
-从源码安装 / Install from source:
+从源码安装：
 
 ```bash
 git clone https://github.com/xrobot-org/xr-source.git
@@ -44,80 +40,599 @@ cd xr-source
 pip install .
 ```
 
-## C++ 示例 / C++ Example
+开发环境：
+
+```bash
+pip install -e ".[dev]"
+```
+
+当前基础包没有第三方 runtime dependency；C++ 与 CMake parser 都包含在包内。
+
+---
+
+## 包结构
+
+```text
+src/xr_syntax/
+├── core/       # 通用不可变 syntax tree、span、grammar、rewrite
+├── cpp/        # C++ lexer/parser/query/view/factory/builder
+├── cmake/      # CMake parser/query/view/factory/builder
+└── format/     # 新生成源码使用的 layout IR
+```
+
+第一轮 code review 建议先看：
+
+```text
+docs/REVIEW_GUIDE.md
+```
+
+---
+
+# C++：读取已有源码
+
+## 解析
 
 ```python
 from xr_syntax.cpp import CppDocument
 
-source = b'''#include "device.hpp"\n\nvoid app_main() {\n  XR_REGISTER(device, Base);\n}\n'''
+source = b"""
+#include "device.hpp"
+
+static Device device;
+
+void app_main() {
+  XR_REGISTER(device, Base);
+}
+""".lstrip()
+
 document = CppDocument.parse(source)
 
 assert document.render_bytes() == source
-print(document.function_views("app_main")[0].name)
-print(document.call_views("XR_REGISTER")[0].arguments[0].text)
 ```
 
-常用查询 / Common queries:
+`CppDocument` 是一个不可变源码 snapshot。
+
+---
+
+## 查询 include
 
 ```python
-document.include_views()
-document.function_views()
-document.class_views()
-document.call_views()
-document.variable_views()
+includes = document.include_views()
+
+assert includes[0].header == "device.hpp"
+assert includes[0].system is False
 ```
 
-## CMake 示例 / CMake Example
+对于：
+
+```cpp
+#include <vector>
+```
+
+对应：
 
 ```python
-from xr_syntax.cmake import CMakeDocument
-
-source = b'''project(Demo)\nadd_library(foo STATIC foo.cpp)\n'''
-document = CMakeDocument.parse(source)
-
-assert document.render_bytes() == source
-print(document.command_views("add_library")[0].arguments[0].text)
+include.header == "vector"
+include.system is True
 ```
 
-CMake parser 由本项目直接实现，与 C++ frontend 一样包含在基础包中。  
-The CMake parser is implemented in this project and ships in the base package with the C++ frontend.
+---
 
-## 生成源码 / Generate Source
+## 查询函数
+
+```python
+function = document.function_views("app_main")[0]
+
+print(function.name)
+print(function.parameters)
+print(function.body)
+```
+
+如果需要底层 syntax node：
+
+```python
+document.functions("app_main")
+```
+
+---
+
+## 查询函数调用
+
+例如：
+
+```cpp
+XR_REGISTER(device, LibXR::GPIO);
+```
+
+可以直接查询：
+
+```python
+calls = document.call_views("XR_REGISTER")
+
+for call in calls:
+    print(call.callee)
+    print([argument.text for argument in call.arguments])
+```
+
+输出参数仍然保持源码层表示：
+
+```text
+device
+LibXR::GPIO
+```
+
+---
+
+## 查询变量
+
+```python
+all_variables = document.variable_views()
+
+globals_ = document.variable_views(
+    global_scope=True,
+)
+
+locals_ = document.variable_views(
+    global_scope=False,
+)
+```
+
+每个 variable view 可以读取：
+
+```python
+variable.name
+variable.base_type
+variable.storage
+variable.qualifiers
+variable.initializer
+variable.global_scope
+```
+
+这里提供的是**源码结构信息**，不是编译器语义。
+
+它不会判断：
+
+- typedef 展开后的最终类型；
+- 某个 constructor call 选择哪个 overload；
+- template 实例化结果。
+
+---
+
+## 查询 class / constructor
+
+```python
+clazz = document.class_views("CameraBase")[0]
+
+constructors = clazz.constructors(
+    public_only=True,
+    callable_only=True,
+)
+
+for constructor in constructors:
+    print(constructor.name)
+    print(constructor.parameters)
+```
+
+例如：
+
+```cpp
+CameraBase(const CameraBase&) = delete;
+```
+
+仍然会被 syntax tree 表示，但 `callable_only=True` 会把它从“可调用构造函数”列表中过滤掉。
+
+析构函数和 `operator=` 不会被误识别成 constructor。
+
+---
+
+# C++：修改已有源码
+
+`CppDocument` 不原地修改。
+
+所有 edit 都返回新 document：
+
+```python
+from xr_syntax.cpp import CppDocument, CppFactory
+
+document = CppDocument.parse(
+    '#include "a.hpp"\n'
+    'void app_main() {}\n'
+)
+
+factory = CppFactory()
+
+changed = document.insert_after(
+    document.includes()[0],
+    factory.include("b.hpp"),
+)
+
+assert document.render() == (
+    '#include "a.hpp"\n'
+    'void app_main() {}\n'
+)
+
+assert changed.render() == (
+    '#include "a.hpp"\n'
+    '#include "b.hpp"\n'
+    'void app_main() {}\n'
+)
+```
+
+高层 edit 完成后会重新 parse，保证 field、diagnostic 和 error-recovery 结构与新源码一致。
+
+---
+
+# User Code / format / lint 区域
+
+STM32 常见区域：
+
+```cpp
+/* User Code Begin 3 */
+custom_code();
+/* User Code End 3 */
+```
+
+不再需要自己写 regex：
+
+```python
+region = document.user_regions()[0]
+
+print(region.name)
+print(region.body_text)
+```
+
+只替换区域内部：
+
+```python
+changed = document.replace_region_body(
+    region,
+    "\ncustom_code();\nother_code();\n",
+)
+```
+
+同样支持：
+
+```cpp
+// clang-format off
+...
+// clang-format on
+```
+
+以及：
+
+```cpp
+// NOLINTBEGIN
+...
+// NOLINTEND
+```
+
+对应：
+
+```python
+document.format_regions()
+document.lint_regions()
+```
+
+---
+
+# C++：生成源码
+
+读取和生成使用同一个 syntax model。
+
+## FileBuilder
 
 ```python
 from xr_syntax.cpp import CppFileBuilder
 
 builder = CppFileBuilder()
+
 builder.include("device.hpp")
 builder.raw("\nstatic Device device;\n")
+
 document = builder.build()
+
 print(document.render())
 ```
+
+## Function / block builder
+
+```python
+builder = CppFileBuilder()
+
+entry = builder.function(
+    "void",
+    "XRobotMain",
+    prefix=["[[noreturn]]"],
+)
+
+entry.parameter(
+    "LibXR::GPIO&",
+    "led",
+)
+
+entry.body.variable(
+    "BlinkLED",
+    "blink",
+    initializer="BlinkLED(led, 250)",
+    storage=["static"],
+)
+
+entry.body.call(
+    "Run",
+    ["blink"],
+)
+
+document = builder.build()
+```
+
+builder 最终返回的仍然是 parser-backed `CppDocument`，不会产生第二套“生成器 AST”。
+
+---
+
+# CMake
+
+CMake frontend 与 C++ 共用同一套 core：
+
+- immutable document；
+- source span；
+- grammar contract；
+- rewrite；
+- builder；
+- layout。
+
+## 读取
+
+```python
+from xr_syntax.cmake import CMakeDocument
+
+source = b"""
+project(Demo)
+add_library(foo STATIC foo.cpp)
+""".lstrip()
+
+document = CMakeDocument.parse(source)
+
+assert document.render_bytes() == source
+
+library = document.command_views(
+    "add_library"
+)[0]
+
+assert library.name == "add_library"
+
+assert [
+    argument.text
+    for argument in library.arguments
+] == [
+    "foo",
+    "STATIC",
+    "foo.cpp",
+]
+```
+
+## 生成
 
 ```python
 from xr_syntax.cmake import CMakeFileBuilder
 
 builder = CMakeFileBuilder()
-builder.command("project", ["Demo", "LANGUAGES", "CXX"])
-builder.command("add_library", ["foo", "STATIC", "foo.cpp"])
-print(builder.build().render())
+
+builder.command(
+    "project",
+    ["Demo", "LANGUAGES", "CXX"],
+)
+
+builder.command(
+    "add_library",
+    ["foo", "STATIC", "foo.cpp"],
+)
+
+document = builder.build()
+
+print(document.render())
 ```
 
-## 目录 / Packages
+---
 
-| 模块 / Module | 内容 / Purpose |
-| --- | --- |
-| `xr_syntax.core` | 不可变语法树、源码范围和重写 / Immutable syntax trees, spans, and rewrites |
-| `xr_syntax.cpp` | C++ parser、查询、view、factory、builder |
-| `xr_syntax.cmake` | CMake parser、查询、view、factory、builder |
-| `xr_syntax.format` | 生成源码使用的布局 IR / Layout IR for generated source |
+# Green / Red syntax tree
 
-需要名称解析、重载决议或类型信息时，可以在 syntax tree 上接编译器或项目自己的 semantic provider。  
-Name resolution, overload results, and type information can be supplied by a compiler or project-specific semantic provider above the syntax tree.
+## Green
 
-## 📖 文档 / Documentation
+Green tree 只保存结构：
 
-- [架构 / Architecture](docs/ARCHITECTURE.md)
-- [审核顺序 / Review Guide](docs/REVIEW_GUIDE.md)
-- [验证 / Validation](docs/VALIDATION.md)
-- [路线图 / Roadmap](docs/ROADMAP.md)
+- kind；
+- text；
+- trivia；
+- children；
+- field。
+
+它不保存：
+
+- parent；
+- absolute offset；
+- owning document。
+
+这样未修改 subtree 可以在多个 immutable snapshot 之间复用。
+
+## Red
+
+Red view 为某个具体 snapshot 增加：
+
+- parent；
+- child index；
+- field；
+- byte span；
+- structural path。
+
+因此：
+
+```text
+Green = 可共享的不可变结构
+Red   = 某个 snapshot 中的位置视图
+```
+
+---
+
+# 无损表示
+
+parser 不一定会把所有字节都作为结构节点。
+
+例如：
+
+- 空白；
+- 某些注释；
+- parser 保守保留的未知片段；
+- 不完整源码。
+
+`xr-syntax` 会把无法安全细分的内容继续作为 source-preserving element 保留下来。
+
+最终必须满足：
+
+```python
+document.render_bytes() == input_bytes
+```
+
+diagnostic 可以存在，静默丢源码不允许存在。
+
+---
+
+# 排版
+
+已有源码的 `render()` 与新源码的 formatting 是两件事。
+
+```text
+render()
+→ 保留已有 syntax / trivia
+
+layout IR
+→ 决定新生成源码如何缩进和折行
+```
+
+layout IR 包含：
+
+```text
+Text
+Concat
+Group
+Indent
+Line
+SoftLine
+HardLine
+IfBreak
+```
+
+这样 XRobot / LibXR_CppCodeGenerator 不需要再在业务逻辑里写行宽判断。
+
+---
+
+# 明确不做什么
+
+`xr-syntax` 负责源码结构，不负责 C++ compiler semantics。
+
+它不会自己实现：
+
+- name lookup；
+- overload resolution；
+- template instantiation；
+- type inference；
+- constant evaluation；
+- ABI；
+- XRobot Module 依赖绑定；
+- `XR_REGISTER` 的业务语义。
+
+例如：
+
+> “某个 Module constructor 应该绑定哪个 LibXR view？”
+
+仍然属于 XRobot 的 domain logic。
+
+---
+
+# Python 支持
+
+与 XRobot、LibXR_CppCodeGenerator 保持一致：
+
+```text
+Python 3.8
+Python 3.9
+Python 3.10
+Python 3.11
+Python 3.12
+Python 3.13
+```
+
+CI 在 Linux 和 Windows 上覆盖以上版本。
+
+---
+
+# 注释规范
+
+项目要求：
+
+- 每个 Python 文件都有模块说明；
+- 每个 class 都有说明；
+- 每个函数 / 方法（包含私有函数）都有中文说明；
+- 关键 parser / rewrite 算法使用行内注释解释“为什么”，而不是逐行复述代码。
+
+CI 中的：
+
+```text
+tools/check_bilingual_docs.py
+```
+
+会自动检查源码、测试和工具脚本的文档覆盖。
+
+---
+
+# 验证
+
+当前验证包括：
+
+- Linux / Windows；
+- Python 3.8–3.13；
+- pytest；
+- ruff；
+- mypy strict；
+- build / wheel / sdist；
+- twine check；
+- standalone wheel smoke；
+- C++ corpus round-trip；
+- CMake corpus round-trip；
+- XRobot constructor parity；
+- XR_REGISTER corpus probe。
+
+详细数据见：
+
+```text
+docs/VALIDATION.md
+```
+
+---
+
+# 开发
+
+```bash
+pip install -e ".[dev]"
+```
+
+常用检查：
+
+```bash
+python -m pytest
+python tools/check_bilingual_docs.py
+python -m ruff check src tests tools
+python -m mypy src
+python -m build
+```
+
+---
+
+# Review
+
+第一轮 review 请先看：
+
+```text
+docs/REVIEW_GUIDE.md
+```
+
+它会告诉你哪些文件决定整体架构，哪些 grammar/test/tool 文件可以后看。

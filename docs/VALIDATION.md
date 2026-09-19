@@ -2,8 +2,9 @@
 
 ## CI
 
-CI 在 Linux 和 Windows 上运行测试，并覆盖 Python 3.8、3.10、3.12 和 3.14。  
-CI runs on Linux and Windows with Python 3.8, 3.10, 3.12, and 3.14.
+CI 在 Linux 和 Windows 上运行测试，并覆盖 Python 3.8、3.9、3.10、3.11、3.12 和 3.13，与 XRobot、LibXR_CppCodeGenerator 保持一致。
+
+CI runs on Linux and Windows with Python 3.8 through 3.13, matching XRobot and LibXR_CppCodeGenerator.
 
 质量检查包括 Ruff、mypy、双语文档检查和 wheel/sdist 打包测试。  
 Quality checks include Ruff, mypy, bilingual documentation checks, and wheel/sdist packaging tests.

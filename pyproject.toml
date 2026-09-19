@@ -27,7 +27,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Typing :: Typed",
@@ -43,7 +42,7 @@ dev = [
     "build>=1.2",
     "pytest>=8",
     "ruff>=0.12",
-    "mypy>=1.15,<2",
+    "mypy==1.14.1",
 ]
 
 [tool.setuptools.packages.find]
