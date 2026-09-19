@@ -1,0 +1,28 @@
+name: export-bilingual-base
+
+on:
+  push:
+    branches:
+      - feat/source-model-20260918
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bilingual-current
+          if-no-files-found: error
+          path: |
+            README.md
+            docs
+            pyproject.toml
+            MANIFEST.in
+            src
+            tests
+            tools
+            .github/workflows/test.yml
