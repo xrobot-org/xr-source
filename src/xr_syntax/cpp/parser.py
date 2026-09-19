@@ -195,12 +195,15 @@ class _StructuralParser(_DeclarationMixin, _ExpressionMixin, _DeclaratorMixin, _
         while line_end < end:
             item = self.lexemes[line_end]
             if item.kind == "newline":
-                # 与既有 API 保持一致：directive 节点拥有本行换行。
-                # lexer 已保证这里只包含一个 CR/LF/CRLF，不会吞掉下一空行。
-                # Keep the existing API contract: a directive node owns its line ending.
-                # The lexer guarantees this is exactly one CR/LF/CRLF and cannot consume the
-                # following blank line.
+                previous = line_end - 1
+                while previous >= start and self.lexemes[previous].trivia:
+                    previous -= 1
+                continued = (
+                    previous >= start and self.lexemes[previous].text == "\\"
+                )
                 line_end += 1
+                if continued:
+                    continue
                 break
             line_end += 1
 

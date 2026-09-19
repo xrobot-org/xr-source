@@ -94,3 +94,25 @@ def test_identifier_occurrences_ignore_literals_comments_and_directives() -> Non
         (True, False),
         (False, True),
     ]
+
+
+def test_multiline_preprocessor_define_does_not_swallow_following_class() -> None:
+    """验证反斜杠续行的宏定义不会吞掉后续 class。
+    Verify that continued macro definitions do not consume a following class declaration.
+    """
+    source = (
+        "#define VALUE \\\n"
+        "  0x1D // continued macro body\n"
+        "#define OTHER \\\n"
+        "  0x40\n"
+        "class Sensor {\n"
+        " public:\n"
+        "  Sensor(int value) {}\n"
+        "};\n"
+    )
+    document = CppDocument.parse(source)
+
+    assert document.render() == source
+    assert not document.diagnostics
+    assert len(document.classes("Sensor")) == 1
+    assert len(document.class_views("Sensor")[0].constructors(public_only=True)) == 1
