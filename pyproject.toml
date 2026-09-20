@@ -33,9 +33,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/xrobot-org/xr-source"
-Repository = "https://github.com/xrobot-org/xr-source"
-"Bug Tracker" = "https://github.com/xrobot-org/xr-source/issues"
+Homepage = "https://github.com/xrobot-org/xr-syntax"
+Repository = "https://github.com/xrobot-org/xr-syntax"
+"Bug Tracker" = "https://github.com/xrobot-org/xr-syntax/issues"
 
 [project.optional-dependencies]
 dev = [

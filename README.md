@@ -35,8 +35,8 @@ pip install xr-syntax
 从源码安装：
 
 ```bash
-git clone https://github.com/xrobot-org/xr-source.git
-cd xr-source
+git clone https://github.com/xrobot-org/xr-syntax.git
+cd xr-syntax
 pip install .
 ```
 
