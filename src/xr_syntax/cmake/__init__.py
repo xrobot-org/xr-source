@@ -9,6 +9,10 @@ from .grammar import CMAKE_GRAMMAR, GRAMMAR_REVISION, GRAMMAR_VERSION
 from .parser import CMakeParser
 from .view import CMakeArgumentView, CMakeCommandView
 
+# ---------------------------------------------------------------------------
+# 模块实现：定义 CMake 前端公共接口；它与 C++ 前端共享同一套不可变语法树、重写和布局基础设施。
+# ---------------------------------------------------------------------------
+
 __all__ = [
     "CMAKE_GRAMMAR",
     "CMakeArgumentView",

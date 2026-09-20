@@ -10,7 +10,12 @@ from ._ranges import _deduplicate_replacements, _Replacement
 from ._support import _ParserSupport
 from .lexer import _LITERAL_KINDS
 
+# ---------------------------------------------------------------------------
+# 模块实现：C++ parser 内部的语句与表达式结构解析。
+# ---------------------------------------------------------------------------
 
+# 这一层只对能够可靠判断的结构做细分；无法安全分类的表达式统一保留为
+# source_expression，并继续尽量识别内部不重叠调用，避免“猜错 AST”。
 class _ExpressionMixin(_ParserSupport):
     """解析 compound statement、控制流、调用和常见表达式结构。
     Parse compound statements, control flow, calls, and common expression structures.
@@ -187,6 +192,8 @@ class _ExpressionMixin(_ParserSupport):
         first = significant[0]
         first_text = self.lexemes[first].text
 
+        # 先处理有明显前导关键字/定界符的表达式，这些形式不需要依赖
+        # 名称解析或类型信息即可安全识别。
         if first_text == "[" and first in self._pairs:
             body_open = next(
                 (
@@ -271,6 +278,8 @@ class _ExpressionMixin(_ParserSupport):
                     replacements,
                 )
 
+        # 二元表达式按“最低优先级运算符”切分，递归解析左右两侧，
+        # 这样无需构造完整 Pratt/LR parser 也能保持常见表达式层级正确。
         operator = self._lowest_precedence_operator(start, end)
         if operator is not None:
             left_range = self._trim(start, operator)
@@ -313,6 +322,8 @@ class _ExpressionMixin(_ParserSupport):
                     ],
                 )
 
+        # call suffix 只在顶层括号匹配明确时识别，callee 自身只建立
+        # qualified/field/source_expression 等源码结构，不做 name lookup。
         call = self._find_call_suffix(start, end)
         if call is not None:
             open_paren, close_paren = call
@@ -354,6 +365,8 @@ class _ExpressionMixin(_ParserSupport):
             if token.kind in _LITERAL_KINDS:
                 return token.green()
 
+        # 最后保守 fallback：整体仍是 source_expression，但把其中可以确定
+        # 边界的调用提升成子节点，供 XR_REGISTER 等查询使用。
         nested = self._scan_nested_calls(start, end)
         return self._compose(
             "source_expression",

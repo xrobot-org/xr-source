@@ -6,6 +6,9 @@ from __future__ import annotations
 
 from .red import SyntaxElement, SyntaxNode, SyntaxToken, SyntaxTrivia
 
+# ---------------------------------------------------------------------------
+# 模块实现：定义面向 red 语法视图的只读深度优先访问器。
+# ---------------------------------------------------------------------------
 
 class SyntaxVisitor:
     """按源码顺序深度优先遍历 red 语法元素的只读访问器。

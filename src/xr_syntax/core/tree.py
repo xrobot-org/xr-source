@@ -13,6 +13,9 @@ from .green import GreenChild, GreenElement, GreenNode, GreenTrivia
 from .red import SyntaxElement, SyntaxNode
 from .text import encode_source
 
+# ---------------------------------------------------------------------------
+# SyntaxTree 快照与 persistent green-tree 编辑
+# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class SyntaxTree:
@@ -59,6 +62,8 @@ class SyntaxTree:
         """
         return encode_source(self.render())
 
+    # 这里的低层编辑只沿 target.path 重建祖先链；路径之外的 green subtree
+    # 继续复用原对象。高层 Document 在需要恢复 parser field/diagnostic 时再 reparse。
     def replace(
         self,
         target: SyntaxElement,
@@ -166,6 +171,10 @@ class SyntaxTree:
             source_name=self.source_name,
         )
 
+
+# ---------------------------------------------------------------------------
+# 结构路径递归操作：只处理 green tree，不触碰 parser/diagnostic
+# ---------------------------------------------------------------------------
 
 def _replace_at(
     root: GreenNode,

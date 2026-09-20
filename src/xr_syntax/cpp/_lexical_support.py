@@ -6,6 +6,9 @@ from __future__ import annotations
 
 from .lexer import _Lexeme
 
+# ---------------------------------------------------------------------------
+# 模块实现：C++ 词法查询共享的内部辅助函数。
+# ---------------------------------------------------------------------------
 
 def _inside_preprocessor(lexemes: list[_Lexeme], index: int) -> bool:
     """判断 lexeme 是否位于预处理逻辑行，包括反斜杠续行。

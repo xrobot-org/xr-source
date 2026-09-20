@@ -12,6 +12,9 @@ from xr_syntax.core import SourceDraft, SyntaxFragment
 from .document import CMakeDocument
 from .factory import CMakeFactory
 
+# ---------------------------------------------------------------------------
+# 模块实现：提供只在 build() 边界解析一次的 CMake 文件构建器。
+# ---------------------------------------------------------------------------
 
 @dataclass
 class CMakeFileBuilder:

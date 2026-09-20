@@ -13,7 +13,12 @@ from xr_syntax.format import Group, Indent, concat, hardline, join, render, soft
 from .document import CppDocument
 from .factory import CppFactory
 
+# ---------------------------------------------------------------------------
+# 模块实现：提供 C++ 文件、函数和代码块的批量源码构建器。
+# ---------------------------------------------------------------------------
 
+# BlockBuilder 只累积 draft/fragment，不为每一条语句单独 parse；完整函数或文件
+# 在 build() 边界统一解析一次，避免生成大量小 parser 调用。
 @dataclass
 class CppBlockBuilder:
     """按顺序累积尚未解析的函数体源码。
@@ -148,6 +153,8 @@ class CppFunctionBuilder:
         self.parameters.append((cpp_type, name))
         return self
 
+    # 函数签名先通过 layout IR 决定折行，body 中已有 fragment 则直接复用源码；
+    # 这里只生成 SourceDraft，是否单独 parse 由调用者决定。
     def draft(self) -> SourceDraft:
         """渲染函数源码但不单独解析。
         Render the function source without parsing it separately.
@@ -195,6 +202,8 @@ class CppFunctionBuilder:
         return self.factory.declaration(self.draft().source)
 
 
+# FileBuilder 维护顶层源码顺序；函数 builder 在最终 build() 时才渲染，
+# 从而让 include/raw/function/region 统一经过一次完整文档验证。
 @dataclass
 class CppFileBuilder:
     """累积 C++ source draft，并在 build() 时只解析完整文件一次。
@@ -353,6 +362,8 @@ class CppFileBuilder:
         source = "\n".join(rendered)
         if source and not source.endswith("\n"):
             source += "\n"
+        # 生成结束后只在这里做一次完整 parse，确保 builder 输出和读取已有源码
+        # 使用完全相同的 CppDocument/SyntaxTree 模型。
         document = CppDocument.parse(source, parser=self.factory.parser)
         if require_clean and document.diagnostics:
             messages = "; ".join(item.message for item in document.diagnostics)

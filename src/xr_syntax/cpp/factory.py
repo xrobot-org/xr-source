@@ -21,7 +21,12 @@ from xr_syntax.format import Group, Indent, concat, join, line, render, softline
 from .document import CppDocument
 from .parser import CppParser
 
+# ---------------------------------------------------------------------------
+# 模块实现：提供常见 C++ 源码片段的 parser-backed 工厂。
+# ---------------------------------------------------------------------------
 
+# Factory 同时提供两类能力：公开方法返回已解析、可安全插入的 SyntaxFragment；
+# 私有 *_draft 方法只负责低成本地产生源码文本，供 Builder 批量拼装后统一 parse。
 class CppFactory:
     """创建带 C++ 语言归属的 parser-backed 片段。
     Create parser-backed fragments carrying explicit C++ language provenance.
@@ -36,6 +41,9 @@ class CppFactory:
         self.parser = parser or CppParser()
         self.width = width
 
+    # -----------------------------------------------------------------------
+    # 对外 fragment API：这些方法返回带 C++ 语言归属的 parser-backed 片段。
+    # -----------------------------------------------------------------------
     def include(self, header: str, *, system: bool = False) -> SyntaxFragment:
         """创建 include 指令片段。
         Create one include-directive fragment.
@@ -195,6 +203,9 @@ class CppFactory:
         )
         return self._fragment(self._first_node(draft.source, "function_definition"))
 
+    # -----------------------------------------------------------------------
+    # Builder 内部 draft API：只生成源码，不在每个小片段上重复启动 parser。
+    # -----------------------------------------------------------------------
     def _include_draft(self, header: str, *, system: bool = False) -> SourceDraft:
         """生成尚未解析的 include 源码。
         Build unparsed source for one include directive.
@@ -318,6 +329,8 @@ class CppFactory:
         """按 begin/end 标记构造可插入保护区域。
         Construct an insertable protected region from begin/end markers and body fragments.
         """
+        # Region 标记本身是普通 comment token；区域语义由显式 xr_*_region
+        # 节点提供，避免修改底层 C++ grammar。
         children: list[GreenChild] = [
             GreenChild(GreenToken("comment", begin, named=True)),
             GreenChild(GreenTrivia("newline", "\n")),

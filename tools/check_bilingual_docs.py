@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import argparse
 import ast
+import io
 import re
+import tokenize
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -109,14 +111,27 @@ class _Visitor(ast.NodeVisitor):
 
 
 def _audit_python(root: Path) -> List[Tuple[Path, int, str]]:
-    """检查全部 Python 模块、类和函数。
-    Audit all Python modules, classes, and functions.
+    """检查全部 Python 模块、类、函数和 runtime 行注释。
+    Audit Python docstrings and require Chinese line comments in runtime files.
     """
     issues: List[Tuple[Path, int, str]] = []
+    runtime_root = root / "src" / "xr_syntax"
+
     for path in _python_files(root):
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(path))
         _check_docstring(issues, path, tree, "<module>")
         _Visitor(path, issues).visit(tree)
+
+        if runtime_root in path.parents:
+            comments = (
+                token.string
+                for token in tokenize.generate_tokens(io.StringIO(source).readline)
+                if token.type == tokenize.COMMENT
+            )
+            if not any(_has_chinese(comment) for comment in comments):
+                issues.append((path, 1, "<module>: missing 中文 # comment"))
+
     return issues
 
 

@@ -25,6 +25,8 @@ from .grammar import CPP_GRAMMAR
 from .lexer import _PUNCTUATORS, _QUALIFIERS, _STORAGE, _TYPE_WORDS, _Lexeme, _Lexer
 
 
+# 对外 parser 只组织“词法扫描 -> 结构解析 -> round-trip 校验”三阶段；
+# 每次 parse 都创建独立 _StructuralParser，因此同一个 CppParser 可并发复用。
 class CppParser:
     """无损 C++ source parser；parse 调用之间不共享可变状态。
     Lossless C++ parser whose parse calls do not share mutable parsing state.
@@ -70,6 +72,8 @@ class CppParser:
         """
         data = encode_source(source) if isinstance(source, str) else bytes(source)
         text = decode_source(data)
+        # Lexer 负责 source-preserving lexeme 与基础诊断；StructuralParser
+        # 只在 lexeme 范围上建立结构，不再重新切原始字符串。
         lexer = _Lexer(text)
         lexemes, diagnostics = lexer.scan()
         parser = _StructuralParser(lexemes, diagnostics)
@@ -80,6 +84,8 @@ class CppParser:
         return tree
 
 
+# 结构层拆成 declaration / declarator / expression / range 四个 mixin；
+# 这里仅负责阶段调度和 translation-unit 级控制流，避免单文件变成巨型 parser。
 class _StructuralParser(_DeclarationMixin, _ExpressionMixin, _DeclaratorMixin, _RangeMixin):
     """组合声明、declarator、表达式和区间解析阶段，构成原生 C++ 结构 parser。
     Combine declaration, declarator, expression, and range parsing stages into the native C++ structural parser.
@@ -136,6 +142,8 @@ class _StructuralParser(_DeclarationMixin, _ExpressionMixin, _DeclaratorMixin, _
             if current is None:
                 break
 
+            # scope 解析按“明确结构优先”处理：预处理、template、class、
+            # namespace、access label 都先于通用 unit/declaration fallback。
             if self.lexemes[current].text == "#" and self._line_prefix_is_trivia(current, start):
                 replacement = self._parse_preprocessor(current, end)
                 result.append(replacement)
@@ -199,6 +207,8 @@ class _StructuralParser(_DeclarationMixin, _ExpressionMixin, _DeclaratorMixin, _
                 previous = line_end - 1
                 while previous >= start and self.lexemes[previous].trivia:
                     previous -= 1
+                # 反斜杠续行仍属于同一条逻辑预处理指令，不能在物理换行处
+                # 提前结束，否则宏 body 会被误当成普通 translation-unit 源码。
                 continued = (
                     previous >= start and self.lexemes[previous].text == "\\"
                 )

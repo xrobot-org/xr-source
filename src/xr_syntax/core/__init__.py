@@ -18,6 +18,10 @@ from .span import SourcePoint, SourceSpan
 from .text import decode_source, encode_source
 from .tree import SyntaxTree
 
+# ---------------------------------------------------------------------------
+# 模块实现：集中导出不可变语法树、grammar、源码范围、文档和 parser schema 等核心抽象。
+# ---------------------------------------------------------------------------
+
 __all__ = [
     "Diagnostic",
     "decode_source",

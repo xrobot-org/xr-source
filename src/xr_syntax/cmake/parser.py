@@ -25,6 +25,10 @@ from xr_syntax.core import (
 
 from .grammar import CMAKE_GRAMMAR
 
+# ---------------------------------------------------------------------------
+# 模块实现：CMake 源码解析器。
+# ---------------------------------------------------------------------------
+
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _BLOCKS = {
     "if": ("endif", "if_condition"),
@@ -35,6 +39,7 @@ _BLOCKS = {
 }
 
 
+# 对外入口只负责建立 schema、调用结构扫描器，并检查最终字节无损。
 class CMakeParser:
     """无损 CMake parser；parse 调用之间不共享可变状态。
     Lossless CMake parser whose parse calls do not share mutable parsing state.
@@ -100,6 +105,8 @@ class CMakeParser:
         return tree
 
 
+# 第一阶段把文件线性切成 command/comment/trivia；第二阶段再把
+# if()/foreach()/function()/macro() 等成对命令递归组合成 block 节点。
 class _CMakeStructuralParser:
     """识别 CMake 命令、参数、注释和块结构。
     Recognize CMake commands, arguments, comments, and block structure.
@@ -139,6 +146,8 @@ class _CMakeStructuralParser:
             children.append(GreenChild(self._trivia(self.text[cursor:next_start])))
             cursor = next_start
 
+        # command 的词法边界先全部确定，再做 block 配对，避免扫描参数时
+        # 同时维护嵌套 block 状态，保持 parser 状态机简单且可恢复。
         grouped, _ = self._group_blocks(children, 0, None)
         return GreenNode("source_file", tuple(grouped), named=True)
 
@@ -199,6 +208,8 @@ class _CMakeStructuralParser:
         cursor = opening + 1
         while cursor < self.length:
             char = self.text[cursor]
+            # 引号、bracket argument 和注释内部的括号都不是 command 括号，
+            # 必须整体跳过后再更新 depth。
             if char == '"':
                 cursor = self._quoted_end(cursor)
                 continue
@@ -355,6 +366,8 @@ class _CMakeStructuralParser:
                 continue
 
             expected_close, kind = block
+            # 递归只处理已经切好的 command 序列；找不到闭合命令时保留原节点，
+            # 同时记录诊断而不是丢弃后续源码。
             inner, close_index = self._group_blocks(children, cursor + 1, expected_close)
             if close_index >= len(children):
                 output.append(child)

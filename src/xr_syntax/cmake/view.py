@@ -8,6 +8,9 @@ from dataclasses import dataclass
 
 from xr_syntax.core import SyntaxElement, SyntaxNode
 
+# ---------------------------------------------------------------------------
+# 模块实现：提供 CMake 命令与参数的轻量只读视图，保留原始源码文本和语法节点。
+# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class CMakeArgumentView:

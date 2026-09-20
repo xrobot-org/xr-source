@@ -6,6 +6,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+# ---------------------------------------------------------------------------
+# 模块实现：定义具体 parser 运行时暴露的 kind 与 field 标识表。
+# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class ParserKindInfo:

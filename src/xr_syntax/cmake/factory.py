@@ -12,6 +12,9 @@ from xr_syntax.format import Group, Indent, concat, join, line, render, softline
 from .document import CMakeDocument
 from .parser import CMakeParser
 
+# ---------------------------------------------------------------------------
+# 模块实现：提供 CMake 命令、注释和条件块的 parser-backed 片段工厂。
+# ---------------------------------------------------------------------------
 
 class CMakeFactory:
     """创建带 CMake 语言归属的 parser-backed 片段。

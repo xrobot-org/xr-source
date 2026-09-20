@@ -9,6 +9,9 @@ from dataclasses import dataclass
 from .green import GreenElement
 from .text import encode_source
 
+# ---------------------------------------------------------------------------
+# 模块实现：定义带语言归属的语法片段和未解析源码草稿。
+# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class SourceDraft:

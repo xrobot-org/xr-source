@@ -11,6 +11,10 @@ from xr_syntax.core import Diagnostic, GreenElement, GreenNode
 
 from .lexer import _Lexeme
 
+# ---------------------------------------------------------------------------
+# 模块实现：Native C++ parser 各结构阶段共享的严格类型合同。
+# ---------------------------------------------------------------------------
+
 if TYPE_CHECKING:
     from ._ranges import _Replacement
 

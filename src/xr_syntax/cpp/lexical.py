@@ -12,6 +12,9 @@ from xr_syntax.core import SourceSpan
 from ._lexical_support import _inside_preprocessor
 from .lexer import _LITERAL_KINDS, _Lexer
 
+# ---------------------------------------------------------------------------
+# 模块实现：提供带字符/字节位置的公共 C++ 词法 token 查询。
+# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class CppLexicalToken:
@@ -26,6 +29,8 @@ class CppLexicalToken:
     span: SourceSpan
 
 
+# Lexer 内部 span 使用 UTF-8 byte offset；公共 API 同时暴露 Python 字符下标，
+# 因此这里建立 byte->char 映射，而不是假设非 ASCII 字符宽度为 1 byte。
 def code_tokens(source: str) -> tuple[CppLexicalToken, ...]:
     """返回实际 C++ 代码 token，跳过 trivia、注释和预处理逻辑行。
     Return C++ code tokens while excluding trivia, comments, and preprocessor logical lines.
@@ -54,6 +59,7 @@ def matching_delimiter(tokens: Sequence[CppLexicalToken], start: int) -> int:
     """返回 opening token 对应的 closing token 索引。
     Return the token index matching the opening delimiter at start.
     """
+    # 普通分隔符直接入栈；模板上下文还要处理 >> 一次关闭两层尖括号。
     pairs = {"(": ")", "[": "]", "{": "}", "<": ">"}
     expected = pairs.get(tokens[start].text)
     if expected is None:
